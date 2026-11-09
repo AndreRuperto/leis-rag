@@ -84,6 +84,23 @@ def capabilities():
     }
 
 
+@app.get("/api/filter-options")
+def filter_options():
+    """Oferece tipos de norma realmente presentes na base indexada."""
+    with connection() as conn:
+        rows = conn.execute("""
+            SELECT btrim(law_type) AS value, count(*) AS count
+            FROM laws
+            WHERE law_type IS NOT NULL AND btrim(law_type) <> ''
+            GROUP BY btrim(law_type)
+            ORDER BY count(*) DESC, btrim(law_type) ASC
+            LIMIT 200
+        """).fetchall()
+    return {
+        "law_types": [{"value": value, "count": count} for value, count in rows],
+    }
+
+
 @app.get("/api/search")
 def search_api(
     q: str = Query(min_length=2, max_length=500),
