@@ -69,5 +69,11 @@ def init_db(conn):
         "CREATE INDEX IF NOT EXISTS idx_passages_law_id "
         "ON passages (law_id)"
     )
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS ai_daily_usage (
+            day DATE PRIMARY KEY,
+            requests INTEGER NOT NULL DEFAULT 0
+        )
+    """)
     # O índice HNSW de vetores é criado manualmente após indexação em grande escala,
     # para evitar custo e memória elevados durante a importação inicial.
