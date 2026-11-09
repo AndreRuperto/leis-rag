@@ -1,1 +1,0 @@
-scripts/test_reparos_commonmark_ta6.py

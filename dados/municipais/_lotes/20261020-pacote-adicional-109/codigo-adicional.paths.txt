@@ -1,2 +1,0 @@
-scripts/auditar_emissores_sapl.py
-scripts/test_emissores_sapl.py

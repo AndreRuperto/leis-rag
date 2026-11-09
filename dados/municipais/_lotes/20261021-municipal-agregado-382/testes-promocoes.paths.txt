@@ -1,1 +1,0 @@
-scripts/test_verificar_promocoes_ta.py

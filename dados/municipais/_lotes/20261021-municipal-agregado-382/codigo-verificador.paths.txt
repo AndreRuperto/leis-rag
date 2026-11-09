@@ -1,2 +1,0 @@
-scripts/verificar_entrega_ta_promocoes.py
-scripts/test_verificar_promocoes_ta.py
