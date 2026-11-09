@@ -128,6 +128,13 @@
     .answer{border:1px solid var(--line);border-left:4px solid var(--brand);border-radius:14px;padding:24px;background:var(--answer-bg);margin-bottom:20px}
     .answer h3{margin:0 0 10px;color:var(--brand);font-size:14px;font-weight:800}
     .answer-body{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8;font-size:14px}
+    .ai-availability{margin:0;padding:12px 28px;background:var(--notice-bg);color:var(--ink);font-size:12px;border-bottom:1px solid var(--line)}
+    .ai-availability[hidden]{display:none}
+    .mode-tab:disabled{cursor:not-allowed;opacity:.65}
+    .web-sources{margin:0 0 20px;padding:19px 22px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+    .web-sources h3{margin:0 0 10px;font-size:15px}
+    .web-sources ul{margin:0;padding-left:20px}
+    .web-sources li{margin-top:7px;font-size:13px;overflow-wrap:anywhere}
     .answer-disclaimer{margin:17px 0 0;padding-top:13px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
     .source{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px 26px;margin-bottom:13px;box-shadow:0 1px 3px rgba(25,51,75,.025)}
     .source:hover{border-color:var(--line-strong)}
@@ -213,6 +220,7 @@
             <button class="mode-tab" id="tab-search" type="button" role="tab" aria-selected="true" aria-controls="query-panel">Buscar dispositivos</button>
             <button class="mode-tab" id="tab-ask" type="button" role="tab" aria-selected="false" aria-controls="query-panel">Consultar com IA</button>
           </div>
+          <p id="ai-availability" class="ai-availability" role="status" hidden></p>
           <div class="search-fields" id="query-panel" role="tabpanel" aria-labelledby="tab-search">
             <label for="question">Assunto, dispositivo ou pergunta</label>
             <textarea id="question" required minlength="2" maxlength="500" placeholder="Ex.: O que a Constituição determina sobre liberdade de expressão?"></textarea>
@@ -292,6 +300,7 @@
 
     let currentMode = "search";
     let activeRequest = null;
+    let aiAvailable = true;
 
     function applyTheme(theme) {
       const selected = theme === "dark" ? "dark" : "light";
@@ -320,6 +329,7 @@
     });
 
     function selectMode(mode, focus = false) {
+      if (mode === "ask" && !aiAvailable) return;
       currentMode = mode === "ask" ? "ask" : "search";
       const isSearch = currentMode === "search";
       tabSearch.setAttribute("aria-selected", String(isSearch));
@@ -450,6 +460,27 @@
       if (!sphereDropdown.contains(event.target)) closeSphereMenu();
     });
 
+    async function loadCapabilities() {
+      try {
+        const response = await fetch("/api/capabilities");
+        if (!response.ok) return;
+        const data = await response.json();
+        aiAvailable = data.ai_available === true;
+        const notice = $("ai-availability");
+        notice.hidden = false;
+        if (!aiAvailable) {
+          tabAsk.disabled = true;
+          tabAsk.setAttribute("aria-disabled", "true");
+          notice.textContent = "Síntese por IA não configurada neste servidor. A busca de dispositivos continua disponível.";
+          selectMode("search");
+        } else {
+          notice.textContent = data.official_web_search_available
+            ? "Consulta híbrida: a IA cruza documentos do acervo com fontes oficiais externas."
+            : "A IA sintetiza os documentos do acervo. Pesquisa em fontes externas não está habilitada.";
+        }
+      } catch (_error) { /* API de prévia ou versão antiga. */ }
+    }
+
     async function loadStats() {
       try {
         const response = await fetch("/api/stats");
@@ -498,14 +529,32 @@
 
       if (mode === "ask") {
         const answer = make("div", "answer");
-        answer.appendChild(make("h3", "", "Síntese assistida por fontes"));
+        answer.appendChild(make("h3", "", data.ai_generated === true ? "Síntese jurídica assistida por IA" : "Status da consulta"));
         answer.appendChild(make("div", "answer-body", data.answer || "Não foi possível gerar uma resposta."));
-        answer.appendChild(make("p", "answer-disclaimer", "Síntese automatizada quando a API está habilitada. Não substitui análise jurídica nem comprova a vigência das normas."));
+        answer.appendChild(make("p", "answer-disclaimer", data.ai_generated
+          ? "Resposta informativa assistida por IA. Confira a fonte oficial e a vigência; não substitui análise jurídica."
+          : "Nenhuma conclusão jurídica foi produzida por IA nesta consulta."));
         result.appendChild(answer);
+        const webSources = Array.isArray(data.web_sources) ? data.web_sources : [];
+        if (webSources.length) {
+          const block = make("section", "web-sources");
+          block.appendChild(make("h3", "", "Fontes oficiais externas consultadas"));
+          const list = make("ul", "");
+          webSources.forEach(source => {
+            const item = make("li", "");
+            addExternalLink(item, source.title || "Fonte oficial", source.url);
+            list.appendChild(item);
+          });
+          block.appendChild(list);
+          result.appendChild(block);
+        }
       }
 
       if (sources.length === 0) {
-        result.appendChild(make("div", "empty", "Nenhum trecho encontrado neste recorte. Tente outra expressão ou retire algum filtro. A ausência de resultados não significa que a norma não exista."));
+        result.appendChild(make("div", "empty",
+          Array.isArray(data.web_sources) && data.web_sources.length
+            ? "O acervo local não retornou trechos; consulte as fontes oficiais externas acima."
+            : "Nenhum trecho encontrado neste recorte. Amplie a busca ou os filtros. A ausência de resultados não significa que a norma não exista."));
         return;
       }
 
@@ -627,6 +676,7 @@
     }));
     selectMode("search");
     loadStats();
+    loadCapabilities();
 </script>
 </body>
 </html>
