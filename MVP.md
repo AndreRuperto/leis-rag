@@ -60,6 +60,34 @@ curl "http://localhost:8000/api/search?q=direitos%20fundamentais"
 
 No .env, coloque OPENAI_API_KEY com uma chave válida (não a envie ao Git). OPENAI_MODEL pode escolher um modelo disponível na sua conta. A consulta sem chave retorna as fontes, sem inventar uma resposta. O uso de API pode gerar custos, separados de qualquer assinatura do ChatGPT.
 
+## Respostas jurídicas: acervo e pesquisa externa
+
+A opção **Consultar com IA** usa o conteúdo da base local como evidência. O texto
+apresentado pelo modelo não comprova a vigência de uma norma.
+
+O comportamento do endpoint `POST /api/ask` agora diferencia:
+- **Sem chave:** nenhum texto jurídico gerado por IA; o acervo continua disponível.
+- **Com chave, sem pesquisa externa:** responde só com trechos locais; se não encontrou
+  evidências, informa a limitação sem sugerir que inexiste legislação.
+- **Com chave e `LEGAL_WEB_SEARCH_ENABLED=1`:** pesquisa obrigatória em sites oficiais
+  (Planalto, STF, STJ, Senado, Câmara, CNJ e gov.br), permite relacionar
+  Constituição, leis e jurisprudência, e devolve `web_sources` com URLs citadas
+  pelo provedor, além de `sources` locais. Sem citações oficiais verificáveis,
+  o servidor não apresenta conclusão jurídica derivada da busca.
+
+Para a modalidade exclusivamente documental, envie `research_mode: "acervo"` no
+corpo da requisição (padrão `"hybrid"`). O endpoint `GET /api/capabilities`
+indica se IA e pesquisa externa estão configuradas; a interface desabilita
+a aba de IA quando não há chave configurada.
+
+**Muito importante:** **não configure uma chave paga no serviço público do MVP**
+antes de implementar controle de acesso, limites de uso e observabilidade de custos.
+A busca web gera cobrança adicional por chamadas. O modelo pode ter limitações
+de cobertura, mesmo com filtros de domínio.
+
+A prévia `leis-preview-visual-production.up.railway.app` serve apenas para avaliar
+a interface e tem poucos exemplos da Constituição; não é uma resposta jurídica.
+
 ## Vetores opcionais
 
 No .env, defina:
