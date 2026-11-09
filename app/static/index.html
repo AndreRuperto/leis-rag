@@ -317,17 +317,23 @@
     .empty{background:var(--surface);border:1px dashed var(--line-strong);padding:35px 24px;border-radius:var(--radius);text-align:center;color:var(--muted);font-size:14px}
     .empty-symbol{display:block;font-family:Georgia,serif;font-size:26px;color:var(--brand);margin-bottom:6px}
     .site-footer{border-top:1px solid var(--line);background:var(--surface)}
-    .footer-inner{max-width:1264px;margin:auto;padding:23px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px;font-size:12px;color:var(--muted)}
-    .footer-inner p{margin:0}
-    .footer-inner a{font-weight:700}
+    .footer-inner{max-width:1264px;margin:auto;padding:34px 32px 24px;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,.7fr) minmax(0,.7fr);gap:30px}
+    .footer-about{max-width:390px}
+    .footer-about strong{display:block;color:var(--ink);font-size:17px}
+    .footer-about p{font-size:12px;color:var(--muted);line-height:1.75;margin:8px 0 0}
+    .footer-column h2{font-size:13px;margin:0 0 12px;color:var(--ink)}
+    .footer-column a{display:block;padding:5px 0;color:var(--muted);font-weight:650;text-decoration:none;font-size:13px}
+    .footer-column a:hover{color:var(--link);text-decoration:underline}
+    .footer-bottom{max-width:1264px;margin:auto;padding:17px 32px 25px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
     @media(max-width:1040px){.hero-side{display:none}.workspace{grid-template-columns:minmax(0,1fr) 230px;gap:18px}.filters{padding:18px}}
     @media(max-width:780px){
-      .nav-shell{padding:13px 20px}.header-nav{display:none}.main-shell{padding:0 20px 50px}
+      .nav-shell{padding:13px 20px}.header-nav{display:flex}.header-nav a[href="#main-content"],.header-nav a[href="#result"]{display:none}.header-actions{gap:10px}.main-shell{padding:0 20px 50px}
       .hero{padding:41px 0 30px}.workspace{grid-template-columns:1fr;padding-top:23px}
       .filters{grid-column:1;grid-row:1;position:static;display:block}
       .main-content{grid-row:2}.fields{grid-template-columns:repeat(2,minmax(0,1fr))}
       .fields>div:first-child{grid-column:1/-1}
       .footnote{max-width:600px}
+      .footer-inner{grid-template-columns:1fr 1fr;gap:24px}
     }
     @media(max-width:480px){
       .nav-shell{padding:12px 16px}.main-shell{padding:0 16px 40px}
@@ -338,8 +344,9 @@
       .search-panel-top{padding:19px 18px 0}.mode-tabs{padding:0 14px}
       .mode-tab{flex:1;padding:12px 5px;font-size:12px}.search-fields{padding:17px}
       .form-bottom{align-items:stretch;flex-direction:column}.form-bottom button{width:100%}
-      .source{padding:18px}.result-head h2{font-size:19px}.footer-inner{padding:20px 16px;display:block}
-      .footer-inner a{display:inline-block;margin-top:8px}
+      .source{padding:18px}.result-head h2{font-size:19px}
+      .footer-inner{grid-template-columns:1fr;padding:25px 16px}
+      .footer-bottom{padding:15px 16px 22px}
     }
     @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
   </style>
@@ -356,7 +363,7 @@
         <nav class="header-nav" aria-label="Navegação principal">
           <a href="#main-content">Pesquisar</a>
           <a href="#result">Resultados</a>
-          <a href="https://github.com/AndreRuperto/leis-rag" target="_blank" rel="noopener noreferrer">Sobre o projeto</a>
+          <a href="/sobre">Sobre o projeto</a>
         </nav>
         <button id="theme-toggle" class="theme-button" type="button" aria-label="Ativar tema escuro"><span id="theme-icon" aria-hidden="true">☾</span><span class="theme-word" id="theme-label">Tema escuro</span></button>
       </div>
@@ -538,7 +545,30 @@
       </aside>
     </div>
   </main>
-  <footer class="site-footer"><div class="footer-inner"><p>Leis RAG · Projeto experimental. Informações para pesquisa, não aconselhamento jurídico. Confira sempre a fonte oficial e a vigência.</p><a href="https://github.com/AndreRuperto/leis-rag" target="_blank" rel="noopener noreferrer">Código e fontes do projeto</a></div></footer>
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-about">
+        <strong>Leis RAG</strong>
+        <p>Pesquisa legislativa brasileira com fontes rastreáveis e recursos opcionais de inteligência artificial.</p>
+        <p>Projeto experimental. Confira sempre a fonte oficial e a vigência das normas.</p>
+      </div>
+      <nav class="footer-column" aria-label="Links do projeto">
+        <h2>Projeto</h2>
+        <a href="/">Pesquisar legislação</a>
+        <a href="/sobre">Sobre o projeto</a>
+        <a href="/sobre#metodologia">Como funciona</a>
+        <a href="/sobre#fontes">Origem dos dados</a>
+      </nav>
+      <nav class="footer-column" aria-label="Redes e desenvolvimento">
+        <h2>Conecte-se</h2>
+        <a href="https://github.com/AndreRuperto/leis-rag" target="_blank" rel="noopener noreferrer">GitHub · Repositório ↗</a>
+        <a href="https://github.com/AndreRuperto" target="_blank" rel="noopener noreferrer">GitHub · Desenvolvedor ↗</a>
+        <a href="https://br.linkedin.com/in/andrerup" target="_blank" rel="noopener noreferrer">LinkedIn ↗</a>
+        <a href="https://github.com/AndreRuperto/leis-rag/issues" target="_blank" rel="noopener noreferrer">Sugerir melhoria ↗</a>
+      </nav>
+    </div>
+    <div class="footer-bottom">© Leis RAG · Projeto independente, sem vínculo institucional com órgãos públicos. Conteúdo informativo.</div>
+  </footer>
   <script src="/assets/uf-flags-1.js"></script>
   <script src="/assets/uf-flags-2.js"></script>
   <script src="/assets/uf-flags-3.js"></script>
