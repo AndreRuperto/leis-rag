@@ -586,7 +586,9 @@
       const sources = Array.isArray(data.sources) ? data.sources : [];
       const head = make("div", "result-head");
       head.appendChild(make("h2", "", mode === "ask" ? "Resposta e fundamentos" : "Dispositivos encontrados"));
-      head.appendChild(make("span", "count", fmt(sources.length) + (sources.length === 1 ? " trecho encontrado" : " trechos encontrados")));
+      const externalCount = Array.isArray(data.web_sources) ? data.web_sources.length : 0;
+      const localText = fmt(sources.length) + (sources.length === 1 ? " trecho do acervo" : " trechos do acervo");
+      head.appendChild(make("span", "count", localText + (externalCount ? " · " + externalCount + " referências externas" : "")));
       result.appendChild(head);
 
       if (mode === "ask") {
@@ -598,14 +600,19 @@
           ? "Resposta informativa assistida por IA. Confira a fonte oficial e a vigência; não substitui análise jurídica."
           : (editorial ? "Guia editorial com fontes verificadas em " + (data.references_checked_at || "data não informada") + ". Não houve consulta à web em tempo real; confirme atualizações nas fontes." : "Nenhuma conclusão jurídica foi produzida por IA nesta consulta.")));
         result.appendChild(answer);
+        if (data.warning) result.appendChild(make("div", "notice", data.warning));
         const webSources = Array.isArray(data.web_sources) ? data.web_sources : [];
         if (webSources.length) {
           const block = make("section", "web-sources");
-          block.appendChild(make("h3", "", editorial ? "Referências oficiais do guia" : "Fontes oficiais externas consultadas"));
+          block.appendChild(make("h3", "", editorial ? "Referências do guia editorial" : "Fontes externas utilizadas na pesquisa"));
           const list = make("ul", "");
           webSources.forEach(source => {
             const item = make("li", "");
-            addExternalLink(item, source.title || "Fonte oficial", source.url);
+            if (source.kind) {
+              const kind = source.kind === "oficial" ? "Oficial" : source.kind === "academica" ? "Acadêmica" : "Complementar";
+              item.appendChild(make("strong", "", kind + " · "));
+            }
+            addExternalLink(item, source.title || "Referência encontrada", source.url);
             list.appendChild(item);
           });
           block.appendChild(list);
@@ -616,7 +623,7 @@
       if (sources.length === 0) {
         result.appendChild(make("div", "empty",
           Array.isArray(data.web_sources) && data.web_sources.length
-            ? (data.answer_mode === "guia_editorial" ? "Os trechos locais não responderam literalmente à pergunta. O guia editorial e suas referências oficiais estão acima." : "O acervo local não retornou trechos; consulte as fontes oficiais externas acima.")
+            ? (data.answer_mode === "guia_editorial" ? "O guia editorial e suas referências estão acima; não houve pesquisa online nesta consulta." : "Nenhum trecho local correspondeu à busca, mas a pesquisa externa trouxe referências acima.")
             : "Nenhum trecho encontrado neste recorte. Amplie a busca ou os filtros. A ausência de resultados não significa que a norma não exista."));
         return;
       }
