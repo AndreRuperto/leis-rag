@@ -128,6 +128,13 @@
     .answer{border:1px solid var(--line);border-left:4px solid var(--brand);border-radius:14px;padding:24px;background:var(--answer-bg);margin-bottom:20px}
     .answer h3{margin:0 0 10px;color:var(--brand);font-size:14px;font-weight:800}
     .answer-body{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8;font-size:14px}
+    .ai-availability{margin:0;padding:12px 28px;background:var(--notice-bg);color:var(--ink);font-size:12px;border-bottom:1px solid var(--line)}
+    .ai-availability[hidden]{display:none}
+    .mode-tab:disabled{cursor:not-allowed;opacity:.65}
+    .web-sources{margin:0 0 20px;padding:19px 22px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+    .web-sources h3{margin:0 0 10px;font-size:15px}
+    .web-sources ul{margin:0;padding-left:20px}
+    .web-sources li{margin-top:7px;font-size:13px;overflow-wrap:anywhere}
     .answer-disclaimer{margin:17px 0 0;padding-top:13px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
     .source{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px 26px;margin-bottom:13px;box-shadow:0 1px 3px rgba(25,51,75,.025)}
     .source:hover{border-color:var(--line-strong)}
@@ -213,6 +220,7 @@
             <button class="mode-tab" id="tab-search" type="button" role="tab" aria-selected="true" aria-controls="query-panel">Buscar dispositivos</button>
             <button class="mode-tab" id="tab-ask" type="button" role="tab" aria-selected="false" aria-controls="query-panel">Consultar com IA</button>
           </div>
+          <p id="ai-availability" class="ai-availability" role="status" hidden></p>
           <div class="search-fields" id="query-panel" role="tabpanel" aria-labelledby="tab-search">
             <label for="question">Assunto, dispositivo ou pergunta</label>
             <textarea id="question" required minlength="2" maxlength="500" placeholder="Ex.: O que a Constituição determina sobre liberdade de expressão?"></textarea>
@@ -292,6 +300,7 @@
 
     let currentMode = "search";
     let activeRequest = null;
+    let aiAvailable = true;
 
     function applyTheme(theme) {
       const selected = theme === "dark" ? "dark" : "light";
@@ -320,6 +329,7 @@
     });
 
     function selectMode(mode, focus = false) {
+      if (mode === "ask" && !aiAvailable) return;
       currentMode = mode === "ask" ? "ask" : "search";
       const isSearch = currentMode === "search";
       tabSearch.setAttribute("aria-selected", String(isSearch));
