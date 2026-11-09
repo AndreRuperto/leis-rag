@@ -70,6 +70,14 @@ def test_about_page_sections_and_sources():
     assert any(image.get("src") == "/assets/brand-logo-dark.svg" for image in tree.images)
 
 
+def test_author_credit_on_both_footers():
+    for page in (HOME, ABOUT):
+        assert 'Desenvolvido por <a href="https://github.com/AndreRuperto"' in page
+        assert 'André Ruperto ↗</a>' in page
+        assert 'rel="noopener noreferrer"' in page
+        assert 'Projeto independente, sem vínculo institucional' in page
+
+
 def test_about_page_theme_persists():
     assert 'localStorage.getItem("leisrag-theme")' in ABOUT
     assert 'localStorage.setItem("leisrag-theme",next)' in ABOUT
