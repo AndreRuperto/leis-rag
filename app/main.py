@@ -4,13 +4,14 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request, Header
 from fastapi.responses import FileResponse
 from openai import OpenAIError
 from pydantic import BaseModel, Field
 
 from .db import connection, init_db
 from .search import answer_with_evidence, search
+from .usage_guard import ai_configured, web_configured, authorize_paid_ai
 
 
 @asynccontextmanager
@@ -34,7 +35,7 @@ class AskRequest(BaseModel):
     uf: str | None = Field(default=None, max_length=2)
     law_type: str | None = Field(default=None, max_length=100)
     limit: int = Field(default=6, ge=1, le=12)
-    research_mode: Literal["hybrid", "acervo"] = "hybrid"
+    research_mode: Literal["auto", "hybrid", "web", "acervo"] = "auto"
 
 
 @app.get("/")
@@ -59,10 +60,16 @@ def stats():
 
 @app.get("/api/capabilities")
 def capabilities():
-    """Descreve opções habilitadas sem expor credenciais."""
-    ai = bool(os.getenv("OPENAI_API_KEY"))
-    web = os.getenv("LEGAL_WEB_SEARCH_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
-    return {"ai_available": ai, "official_web_search_available": ai and web, "editorial_guides_available": True}
+    """Informa capacidades sem revelar chaves ou senhas do provedor."""
+    ai = ai_configured()
+    return {
+        "ai_available": ai,
+        "ai_requires_access_code": ai,
+        "official_web_search_available": web_configured(),
+        "external_research_available": web_configured(),
+        "editorial_guides_available": True,
+        "default_research_mode": "auto",
+    }
 
 
 @app.get("/api/search")
@@ -78,13 +85,27 @@ def search_api(
 
 
 @app.post("/api/ask")
-def ask_api(body: AskRequest):
+def ask_api(
+    body: AskRequest,
+    request: Request,
+    access_token: str | None = Header(default=None, alias="X-Leis-Access-Token"),
+):
+    # Nunca chamar o provedor pago sem as duas credenciais de backend.
+    # Caso o serviço não esteja configurado, guias gratuitos continuam
+    # funcionando de forma transparente, sem simular pesquisa ao vivo.
+    can_use_ai = ai_configured()
+    if can_use_ai:
+        authorize_paid_ai(request, access_token)
+
     sources = search(
         body.question, sphere=body.sphere, uf=body.uf,
         law_type=body.law_type, limit=body.limit,
     )
     try:
-        evidence = answer_with_evidence(body.question, sources, research_mode=body.research_mode)
+        evidence = answer_with_evidence(
+            body.question, sources, research_mode=body.research_mode,
+            allow_ai=can_use_ai,
+        )
     except OpenAIError as exc:
         raise HTTPException(
             status_code=502,
