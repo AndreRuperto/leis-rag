@@ -43,8 +43,10 @@
     .site-header{position:relative;z-index:2;background:var(--surface);border-bottom:1px solid var(--line)}
     .nav-shell{max-width:1264px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:17px 32px}
     .brand{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--ink);min-width:0}
-    .brand-identity{display:block;width:204px;height:auto;max-width:100%;object-fit:contain}
-    :root[data-theme="dark"] .brand-identity{background:#f8fafc;border-radius:12px;padding:4px 7px;box-shadow:0 0 0 1px rgba(255,255,255,.16)}
+    .brand-identity{display:block;width:204px;height:auto;max-width:100%;object-fit:contain;background:transparent}
+    .brand-identity--dark{display:none}
+    :root[data-theme="dark"] .brand-identity--light{display:none}
+    :root[data-theme="dark"] .brand-identity--dark{display:block}
     @media(max-width:480px){.brand-identity{width:164px}}
     @media(max-width:360px){.brand-identity{width:142px}}
     .header-actions{display:flex;align-items:center;gap:22px}
@@ -205,7 +207,8 @@
   <header class="site-header">
     <div class="nav-shell">
       <a class="brand" href="/" aria-label="Leis RAG — página inicial">
-        <img class="brand-identity" src="/assets/brand-logo.svg" alt="Leis RAG — Pesquisa Jurídica" width="204" height="51" decoding="async">
+        <img class="brand-identity brand-identity--light" src="/assets/brand-logo.svg" alt="Leis RAG — Pesquisa Jurídica" width="204" height="51" decoding="async">
+        <img class="brand-identity brand-identity--dark" src="/assets/brand-logo-dark.svg" alt="Leis RAG — Pesquisa Jurídica" width="204" height="51" decoding="async">
       </a>
       <div class="header-actions">
         <nav class="header-nav" aria-label="Navegação principal">
