@@ -14,13 +14,14 @@ import tempfile
 from pathlib import Path
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
+from urllib.error import URLError
 
 from .db import connection, init_db
 from .ingest import index_file, split_passages
 
 MAX_DOWNLOAD = 18 * 1024 * 1024
 ALLOWED_HOSTS = {"www.planalto.gov.br", "planalto.gov.br", "presidencia.gov.br"}
-USER_AGENT = "LeisRAG/1.0 (indexacao documental; projeto academico)"
+USER_AGENT = "Mozilla/5.0 (compatible; LeisRAG/1.0; legal-indexer)"
 
 # URLs de textos compilados e verificados como fontes oficiais.
 # Não presumir que a data de importação corresponda à consolidação legal.
@@ -125,19 +126,42 @@ def _decode(raw, headers):
 
 
 def download_official(url):
+    """Tenta os dois portais oficiais, sem aceitar fontes não governamentais."""
     if not _is_official(url):
         raise ValueError("Fonte fora dos domínios oficiais permitidos")
-    request = Request(url, headers={"User-Agent": USER_AGENT,
-                                    "Accept": "text/html"})
-    with urlopen(request, timeout=35) as response:
-        if not _is_official(response.geturl()):
-            raise ValueError("Redirecionamento para domínio não autorizado")
-        raw = response.read(MAX_DOWNLOAD + 1)
-        if len(raw) > MAX_DOWNLOAD:
-            raise ValueError("Documento ultrapassa o limite permitido")
-        if len(raw) < 4000:
-            raise ValueError("Resposta HTML muito pequena para ser legislação")
-        return _decode(raw, response.headers)
+    variants = [url]
+    if url.startswith("https://presidencia.gov.br/"):
+        variants.append(url.replace("https://presidencia.gov.br/",
+                                    "https://www.planalto.gov.br/", 1))
+    elif url.startswith("https://www.planalto.gov.br/"):
+        variants.append(url.replace("https://www.planalto.gov.br/",
+                                    "https://presidencia.gov.br/", 1))
+    last_error = None
+    for address in variants:
+        for attempt in range(2):
+            request = Request(address, headers={
+                "User-Agent": USER_AGENT,
+                "Accept": "text/html,application/xhtml+xml;q=0.9",
+                "Accept-Language": "pt-BR,pt;q=0.9",
+                "Connection": "close",
+            })
+            try:
+                with urlopen(request, timeout=20) as response:
+                    if not _is_official(response.geturl()):
+                        raise ValueError("Redirecionamento para domínio não autorizado")
+                    raw = response.read(MAX_DOWNLOAD + 1)
+                    if len(raw) > MAX_DOWNLOAD:
+                        raise ValueError("Documento ultrapassa o limite permitido")
+                    if len(raw) < 4000:
+                        raise ValueError("Resposta HTML muito pequena para ser legislação")
+                    return _decode(raw, response.headers)
+            except (URLError, OSError, TimeoutError) as exc:
+                last_error = exc
+                print(f"Falha de conexão oficial ({urlparse(address).hostname}, "
+                      f"tentativa {attempt + 1}/2): {type(exc).__name__}", flush=True)
+    raise ConnectionError(
+        "Nenhum endereço oficial respondeu após tentativas controladas"
+    ) from last_error
 
 
 def extract_articles(html):
@@ -191,26 +215,30 @@ def run(codes, *, dry_run=False, force=False):
         if code not in SOURCES:
             raise ValueError(f"Fonte desconhecida: {code}")
         spec = SOURCES[code]
-        text, number = prepare(code, spec)
-        if dry_run:
-            results.append({"code": code, "status": "validated",
-                            "articles": number, "chars": len(text)})
-            print(f"VALIDADO {code}: {number} artigos, {len(text)} caracteres")
-            continue
-        # O nome lógico sob dados/ é estável entre execuções. O checksum
-        # é calculado pelo importador existente, com transação e rollback.
-        with tempfile.TemporaryDirectory(prefix="leis-rag-import-") as folder:
-            data_root = Path(folder) / "dados"
-            target = data_root / "federal" / "codigos" / f"{code}.md"
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(document(spec, text), encoding="utf-8")
-            with connection() as conn:
-                status, passages = index_file(
-                    conn, target, data_root, model=None, force=force
-                )
-        results.append({"code": code, "status": status,
-                        "articles": number, "passages": passages})
-        print(f"{status.upper()} {code}: {number} artigos; {passages} trechos")
+        try:
+            text, number = prepare(code, spec)
+            if dry_run:
+                results.append({"code": code, "status": "validated",
+                                "articles": number, "chars": len(text)})
+                print(f"VALIDADO {code}: {number} artigos, {len(text)} caracteres")
+                continue
+            with tempfile.TemporaryDirectory(prefix="leis-rag-import-") as folder:
+                data_root = Path(folder) / "dados"
+                target = data_root / "federal" / "codigos" / f"{code}.md"
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(document(spec, text), encoding="utf-8")
+                with connection() as conn:
+                    status, passages = index_file(
+                        conn, target, data_root, model=None, force=force
+                    )
+            results.append({"code": code, "status": status,
+                            "articles": number, "passages": passages})
+            print(f"{status.upper()} {code}: {number} artigos; {passages} trechos")
+        except Exception as exc:
+            # Uma fonte fora do ar não impede a importação das demais.
+            results.append({"code": code, "status": "failed",
+                            "error": type(exc).__name__})
+            print(f"FALHOU {code}: {type(exc).__name__}: {exc}", flush=True)
     return results
 
 
@@ -228,7 +256,9 @@ def main():
     codes = [c.strip() for c in args.codes.split(",") if c.strip()]
     if not codes or len(codes) != len(set(codes)):
         parser.error("Informe códigos válidos sem repetições")
-    run(codes, dry_run=args.dry_run, force=args.force)
+    results = run(codes, dry_run=args.dry_run, force=args.force)
+    if any(item['status'] == 'failed' for item in results):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
