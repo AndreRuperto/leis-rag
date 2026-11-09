@@ -2,6 +2,8 @@
 from html.parser import HTMLParser
 from pathlib import Path
 import re
+import json
+from xml.etree import ElementTree as ET
 import shutil
 import subprocess
 
@@ -134,11 +136,54 @@ def test_custom_sphere_dropdown():
     assert ".filter-dropdown.opens-up .filter-dropdown-menu" in HTML
 
 
+def test_uf_and_law_type_are_accessible_dropdowns():
+    for field in ("uf", "law_type"):
+        assert f'id="{field}" type="text"' not in HTML
+        assert f'id="{field}" name="{field}" value=""' in HTML
+        assert f'id="{field}-trigger"' in HTML
+        assert f'aria-controls="{field}-menu"' in HTML
+        assert f'id="{field}-query"' in HTML
+        assert f'id="{field}-menu" role="listbox"' in HTML
+        assert f'id="{field}-popover" hidden' in HTML
+    assert 'function setupFilterDropdown(' in HTML
+    assert 'function loadLawTypes()' in HTML
+    assert 'fetch("/api/filter-options")' in HTML
+    assert 'focusOption(' in HTML
+    assert 'closeSphereMenu();' in HTML
+    assert 'window.LEIS_UF_FLAGS' in HTML
+    assert '.filter-dropdown-popover[hidden]' in HTML
+
+
+def test_all_27_flags_are_bundled_locally():
+    static_dir = PAGE.parent
+    flags = {}
+    for idx in (1, 2, 3):
+        relative = f"uf-flags-{idx}.js"
+        source = (static_dir / relative).read_text(encoding="utf-8")
+        assert f'src="/assets/{relative}"' in HTML
+        match = re.search(
+            r"Object\.assign\(window\.LEIS_UF_FLAGS \|\| \{\}, (\{.*\})\);", source
+        )
+        assert match
+        for uf, svg in json.loads(match.group(1)).items():
+            assert uf not in flags, "Bandeira duplicada"
+            ET.fromstring(svg)
+            assert "<svg" in svg and "<script" not in svg
+            flags[uf] = svg
+    assert len(flags) == 27
+    states = re.search(r"const UF_REGIONS = \[(.*?)\]\.map", HTML, re.S)
+    assert states
+    codes = set(re.findall(r'\["([A-Z]{2})","[^"]+"\]', states.group(1)))
+    assert len(codes) == 27
+    assert codes == set(flags)
+    assert "DF" in flags and "SP" in flags
+
+
 def test_javascript_parses(tmp_path):
     node = shutil.which("node")
     if not node:
         pytest.skip("Node.js não instalado, teste de sintaxe não executado")
-    scripts = re.findall(r"<script(?:\s[^>]*)?>(.*?)</script>", HTML, re.S)
+    scripts = re.findall(r"<script>(.*?)</script>", HTML, re.S)
     assert len(scripts) == 1
     js = tmp_path / "site.js"
     js.write_text(scripts[0], encoding="utf-8")
