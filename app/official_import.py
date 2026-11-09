@@ -8,9 +8,7 @@ Execução isolada do servidor web:
 Não depende do clone completo de dados/ nem executa na inicialização da API.
 """
 import argparse
-from datetime import datetime, timezone
 from html.parser import HTMLParser
-import io
 import re
 import tempfile
 from pathlib import Path
@@ -154,7 +152,7 @@ def extract_articles(html):
     return "\n\n".join(paragraphs)
 
 
-def document(spec, text, checked_at):
+def document(spec, text):
     content = (
         "---\n"
         f"titulo: {spec['title']!r}\n"
@@ -162,7 +160,7 @@ def document(spec, text, checked_at):
         f"numero: {spec['number']!r}\n"
         f"fonte: {spec['url']!r}\n"
         "situacao: 'Vigência deve ser conferida no texto oficial'\n"
-        f"versao_texto: 'Página consultada em {checked_at}'\n"
+        "versao_texto: 'Transcrição do texto compilado; confira a vigência'\n"
         "---\n"
         f"# {spec['title']}\n\n{text}\n"
     )
@@ -194,7 +192,6 @@ def run(codes, *, dry_run=False, force=False):
             raise ValueError(f"Fonte desconhecida: {code}")
         spec = SOURCES[code]
         text, number = prepare(code, spec)
-        checked_at = datetime.now(timezone.utc).date().isoformat()
         if dry_run:
             results.append({"code": code, "status": "validated",
                             "articles": number, "chars": len(text)})
@@ -206,7 +203,7 @@ def run(codes, *, dry_run=False, force=False):
             data_root = Path(folder) / "dados"
             target = data_root / "federal" / "codigos" / f"{code}.md"
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(document(spec, text, checked_at), encoding="utf-8")
+            target.write_text(document(spec, text), encoding="utf-8")
             with connection() as conn:
                 status, passages = index_file(
                     conn, target, data_root, model=None, force=force
