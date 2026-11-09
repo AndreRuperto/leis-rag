@@ -73,6 +73,26 @@
     select{appearance:none;padding-right:34px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2352677d' stroke-width='2' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
     :root[data-theme="dark"] select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23b0c0d1' stroke-width='2' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E")}
     select:hover,input[type=text]:hover,textarea:hover{border-color:var(--brand)}
+
+    /* Select de esfera: o menu e as opções seguem os tokens em ambos os temas. */
+    .filter-label{display:block;color:var(--ink);font-size:13px;font-weight:740;margin-bottom:6px}
+    .filters{z-index:3;overflow:visible}
+    .filter-dropdown{position:relative;isolation:isolate}
+    .filter-dropdown-trigger{width:100%;min-height:48px;display:flex;align-items:center;justify-content:space-between;gap:12px;border:1.5px solid var(--line-strong);border-radius:11px;background:var(--surface);color:var(--ink);text-align:left;font-size:14px;font-weight:600;line-height:1.35;padding:12px 13px;transition:border-color .15s ease,box-shadow .15s ease}
+    .filter-dropdown-trigger:hover{border-color:var(--brand);background:var(--surface-alt)}
+    .filter-dropdown-trigger[aria-expanded="true"]{border-color:var(--brand);box-shadow:0 0 0 3px var(--surface-tint)}
+    .filter-dropdown-chevron{flex:none;color:var(--muted);transition:transform .16s ease}
+    .filter-dropdown-trigger[aria-expanded="true"] .filter-dropdown-chevron{transform:rotate(180deg)}
+    .filter-dropdown-menu{position:absolute;z-index:40;top:calc(100% + 7px);left:0;right:0;max-height:270px;overflow-y:auto;overscroll-behavior:contain;padding:6px;border:1px solid var(--line-strong);border-radius:12px;background:var(--surface);box-shadow:0 18px 36px rgba(12,25,43,.16);scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
+    :root[data-theme="dark"] .filter-dropdown-menu{box-shadow:0 20px 45px rgba(0,0,0,.38)}
+    .filter-dropdown-menu[hidden]{display:none}
+    .filter-dropdown.opens-up .filter-dropdown-menu{top:auto;bottom:calc(100% + 7px)}
+    .filter-dropdown-option{min-height:43px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;border-radius:8px;color:var(--ink);font-size:13px;line-height:1.45;cursor:pointer;outline:none}
+    .filter-dropdown-option:hover,.filter-dropdown-option:focus-visible{background:var(--surface-alt);color:var(--brand)}
+    .filter-dropdown-option:focus-visible{box-shadow:inset 0 0 0 2px var(--focus)}
+    .filter-dropdown-option.is-selected{background:var(--surface-tint);color:var(--brand);font-weight:750}
+    .filter-dropdown-option.is-selected::after{content:"✓";font-size:14px;font-weight:850;color:var(--brand)}
+    @media(prefers-reduced-motion:reduce){.filter-dropdown-trigger,.filter-dropdown-chevron{transition:none}}
     .filter-divider{height:1px;background:var(--line);margin:22px 0 16px}
     .stat{display:flex;justify-content:space-between;gap:10px;font-size:12px;margin:0 0 11px;color:var(--muted)}
     .stat strong{color:var(--ink);font-variant-numeric:tabular-nums;font-size:13px}
@@ -216,16 +236,29 @@
         <h2>Refinar pesquisa</h2>
         <p class="filters-subtitle">Restrinja por origem e tipo de norma.</p>
         <div class="fields">
-          <div><label for="sphere">Esfera</label>
-            <select id="sphere">
-              <option value="">Todas as esferas</option>
-              <option value="federal">Federal</option>
-              <option value="estadual">Estadual / DF</option>
-              <option value="municipal">Municipal</option>
-              <option value="regulador">Órgãos reguladores</option>
-              <option value="jurisprudencia">Jurisprudência</option>
-              <option value="tratado">Tratados</option>
-            </select>
+          <div>
+            <span class="filter-label" id="sphere-label">Esfera</span>
+            <div class="filter-dropdown" id="sphere-dropdown">
+              <input type="hidden" id="sphere" name="sphere" value="">
+              <button class="filter-dropdown-trigger" id="sphere-trigger" type="button"
+                aria-haspopup="listbox" aria-expanded="false" aria-controls="sphere-menu"
+                aria-labelledby="sphere-label sphere-selected">
+                <span id="sphere-selected">Todas as esferas</span>
+                <svg class="filter-dropdown-chevron" viewBox="0 0 24 24" width="18" height="18"
+                  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div class="filter-dropdown-menu" id="sphere-menu" role="listbox"
+                aria-labelledby="sphere-label" hidden>
+                <div class="filter-dropdown-option is-selected" role="option" tabindex="-1" data-value="" aria-selected="true">Todas as esferas</div>
+                <div class="filter-dropdown-option" role="option" tabindex="-1" data-value="federal" aria-selected="false">Federal</div>
+                <div class="filter-dropdown-option" role="option" tabindex="-1" data-value="estadual" aria-selected="false">Estadual / DF</div>
+                <div class="filter-dropdown-option" role="option" tabindex="-1" data-value="municipal" aria-selected="false">Municipal</div>
+                <div class="filter-dropdown-option" role="option" tabindex="-1" data-value="regulador" aria-selected="false">Órgãos reguladores</div>
+                <div class="filter-dropdown-option" role="option" tabindex="-1" data-value="jurisprudencia" aria-selected="false">Jurisprudência</div>
+                <div class="filter-dropdown-option" role="option" tabindex="-1" data-value="tratado" aria-selected="false">Tratados</div>
+              </div>
+            </div>
           </div>
           <div><label for="uf">UF</label><input id="uf" type="text" maxlength="2" autocomplete="off" placeholder="Ex.: DF"><p class="input-hint">Opcional · duas letras</p></div>
           <div><label for="law_type">Tipo da norma</label><input id="law_type" type="text" maxlength="100" placeholder="Ex.: Lei Ordinária"></div>
@@ -311,6 +344,111 @@
         selectMode(next, true);
       }
     }));
+
+    // Lista de esfera personalizada: click, foco, setas, Home/End, Escape, Tab e busca por letra.
+    const sphereDropdown = $("sphere-dropdown");
+    const sphereTrigger = $("sphere-trigger");
+    const sphereMenu = $("sphere-menu");
+    const sphereInput = $("sphere");
+    const sphereSelected = $("sphere-selected");
+    const sphereOptions = Array.from(sphereMenu.querySelectorAll('[role="option"]'));
+    let sphereTypeahead = "";
+
+    function setSphere(value) {
+      const selected = sphereOptions.find(option => option.dataset.value === value) || sphereOptions[0];
+      sphereInput.value = selected.dataset.value;
+      sphereSelected.textContent = selected.textContent;
+      for (const option of sphereOptions) {
+        const isSelected = option === selected;
+        option.classList.toggle("is-selected", isSelected);
+        option.setAttribute("aria-selected", String(isSelected));
+      }
+      sphereInput.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    function closeSphereMenu(returnFocus = false) {
+      if (sphereMenu.hidden) return;
+      sphereMenu.hidden = true;
+      sphereTrigger.setAttribute("aria-expanded", "false");
+      sphereDropdown.classList.remove("opens-up");
+      sphereTypeahead = "";
+      if (returnFocus) sphereTrigger.focus();
+    }
+
+    function focusSphereOption(index) {
+      const option = sphereOptions[(index + sphereOptions.length) % sphereOptions.length];
+      option.focus({ preventScroll: true });
+      option.scrollIntoView({ block: "nearest" });
+    }
+
+    function openSphereMenu(index = null) {
+      sphereMenu.hidden = false;
+      sphereTrigger.setAttribute("aria-expanded", "true");
+      const rect = sphereTrigger.getBoundingClientRect();
+      const below = Math.max(0, window.innerHeight - rect.bottom - 18);
+      const above = Math.max(0, rect.top - 18);
+      const flip = below < 230 && above > below;
+      sphereDropdown.classList.toggle("opens-up", flip);
+      sphereMenu.style.maxHeight = Math.max(80, Math.min(270, (flip ? above : below) - 8)) + "px";
+      const active = index === null ? Math.max(0, sphereOptions.findIndex(option => option.dataset.value === sphereInput.value)) : index;
+      focusSphereOption(active);
+    }
+
+    sphereTrigger.addEventListener("click", () => {
+      if (sphereMenu.hidden) openSphereMenu();
+      else closeSphereMenu(true);
+    });
+    sphereTrigger.addEventListener("keydown", event => {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Home" || event.key === "End") {
+        event.preventDefault();
+        if (!sphereMenu.hidden) return;
+        const index = event.key === "Home" ? 0 : event.key === "End" ? sphereOptions.length - 1
+          : Math.max(0, sphereOptions.findIndex(option => option.dataset.value === sphereInput.value));
+        openSphereMenu(index);
+      }
+    });
+
+    sphereOptions.forEach((option, index) => {
+      option.addEventListener("click", () => {
+        setSphere(option.dataset.value);
+        closeSphereMenu(true);
+      });
+      option.addEventListener("keydown", event => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeSphereMenu(true);
+        } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+          event.preventDefault();
+          focusSphereOption(index + (event.key === "ArrowDown" ? 1 : -1));
+        } else if (event.key === "Home" || event.key === "End") {
+          event.preventDefault();
+          focusSphereOption(event.key === "Home" ? 0 : sphereOptions.length - 1);
+        } else if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          setSphere(option.dataset.value);
+          closeSphereMenu(true);
+        } else if (event.key === "Tab") {
+          closeSphereMenu();
+        } else if (event.key.length === 1 && !event.altKey && !event.ctrlKey && !event.metaKey) {
+          const letter = event.key.toLocaleLowerCase("pt-BR");
+          sphereTypeahead = sphereTypeahead + letter;
+          const normalize = text => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
+          let matching = sphereOptions.findIndex(item => normalize(item.textContent).startsWith(normalize(sphereTypeahead)));
+          if (matching === -1) {
+            sphereTypeahead = letter;
+            matching = sphereOptions.findIndex(item => normalize(item.textContent).startsWith(normalize(letter)));
+          }
+          if (matching >= 0) focusSphereOption(matching);
+        }
+      });
+    });
+
+    document.addEventListener("pointerdown", event => {
+      if (!sphereDropdown.contains(event.target)) closeSphereMenu();
+    });
+    document.addEventListener("focusin", event => {
+      if (!sphereDropdown.contains(event.target)) closeSphereMenu();
+    });
 
     async function loadStats() {
       try {
