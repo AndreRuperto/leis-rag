@@ -234,7 +234,7 @@ def _message(answer, *, mode="acervo", sources=None, ai=False, web=False,
     }
 
 
-def answer_with_evidence(question, sources, *, research_mode="auto"):
+def answer_with_evidence(question, sources, *, research_mode="auto", allow_ai=True):
     """Responde com pesquisa externa independente do número de trechos locais.
 
     Modos:
@@ -246,7 +246,7 @@ def answer_with_evidence(question, sources, *, research_mode="auto"):
     sources = sources or []
     if research_mode not in {"auto", "hybrid", "web", "acervo"}:
         raise ValueError("Modo de pesquisa inválido")
-    api_available = bool(os.getenv("OPENAI_API_KEY", "").strip())
+    api_available = allow_ai and bool(os.getenv("OPENAI_API_KEY", "").strip())
     web_available = api_available and _enabled("LEGAL_WEB_SEARCH_ENABLED")
     wants_web = research_mode != "acervo"
     use_web = web_available and wants_web
