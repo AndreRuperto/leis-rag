@@ -19,7 +19,7 @@ def test_brand_assets_are_valid_svg():
         assert root.attrib["viewBox"]
         assert content.count("Leis RAG") >= 1
         assert "§" in content
-        assert "#009f80" in content
+        assert ("#5AD8B2" if filename == "brand-logo-dark.svg" else "#009f80") in content
 
 
 def test_html_uses_logo_and_favicon():
