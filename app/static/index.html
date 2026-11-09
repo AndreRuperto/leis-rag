@@ -238,75 +238,171 @@
   </main>
   <footer class="site-footer"><div class="footer-inner"><p>Leis RAG · Projeto experimental. Informações para pesquisa, não aconselhamento jurídico. Confira sempre a fonte oficial e a vigência.</p><a href="https://github.com/AndreRuperto/leis-rag" target="_blank" rel="noopener noreferrer">Código e fontes do projeto</a></div></footer>
   <script>
-    const form = document.getElementById("form");
-    const question = document.getElementById("question");
-    const result = document.getElementById("result");
-    const askButton = document.getElementById("ask-btn");
-    const searchButton = document.getElementById("search-btn");
-    const el = (tag, cls, text) => {
+    "use strict";
+    const $ = id => document.getElementById(id);
+    const form = $("form");
+    const question = $("question");
+    const result = $("result");
+    const submitButton = $("submit-btn");
+    const submitLabel = $("submit-label");
+    const tabSearch = $("tab-search");
+    const tabAsk = $("tab-ask");
+    const themeToggle = $("theme-toggle");
+    const fmt = number => Number(number).toLocaleString("pt-BR");
+    const make = (tag, className, value) => {
       const node = document.createElement(tag);
-      if (cls) node.className = cls;
-      if (text !== undefined) node.textContent = text;
+      if (className) node.className = className;
+      if (value !== undefined && value !== null) node.textContent = String(value);
       return node;
     };
-    const fmt = number => Number(number).toLocaleString("pt-BR");
+
+    let currentMode = "search";
+    let activeRequest = null;
+
+    function applyTheme(theme) {
+      const selected = theme === "dark" ? "dark" : "light";
+      document.documentElement.dataset.theme = selected;
+      const next = selected === "light" ? "dark" : "light";
+      themeToggle.setAttribute("aria-label", "Ativar tema " + (next === "dark" ? "escuro" : "claro"));
+      themeToggle.setAttribute("aria-pressed", String(selected === "dark"));
+      $("theme-icon").textContent = next === "dark" ? "☾" : "☀";
+      $("theme-label").textContent = "Tema " + (next === "dark" ? "escuro" : "claro");
+      document.querySelector('meta[name="theme-color"]').content = selected === "dark" ? "#0b1220" : "#f6f8fb";
+    }
+
+    function readThemePreference() {
+      try {
+        const stored = localStorage.getItem("leisrag-theme");
+        if (stored === "dark" || stored === "light") return stored;
+      } catch (_error) { /* armazenamento opcional */ }
+      return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+
+    applyTheme(readThemePreference());
+    themeToggle.addEventListener("click", () => {
+      const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+      applyTheme(next);
+      try { localStorage.setItem("leisrag-theme", next); } catch (_error) { /* armazenamento opcional */ }
+    });
+
+    function selectMode(mode, focus = false) {
+      currentMode = mode === "ask" ? "ask" : "search";
+      const isSearch = currentMode === "search";
+      tabSearch.setAttribute("aria-selected", String(isSearch));
+      tabAsk.setAttribute("aria-selected", String(!isSearch));
+      tabSearch.tabIndex = isSearch ? 0 : -1;
+      tabAsk.tabIndex = isSearch ? -1 : 0;
+      $("query-panel").setAttribute("aria-labelledby", isSearch ? "tab-search" : "tab-ask");
+      submitLabel.textContent = isSearch ? "Pesquisar legislação" : "Consultar com IA";
+      $("mode-note").textContent = isSearch
+        ? "Encontre artigos e dispositivos na base disponível, com referência ao documento original."
+        : "A IA utiliza os trechos recuperados como base. Confira sempre as citações e a vigência.";
+      if (focus) (isSearch ? tabSearch : tabAsk).focus();
+    }
+
+    tabSearch.addEventListener("click", () => selectMode("search"));
+    tabAsk.addEventListener("click", () => selectMode("ask"));
+    [tabSearch, tabAsk].forEach(tab => tab.addEventListener("keydown", event => {
+      if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+        event.preventDefault();
+        const next = event.key === "Home" ? "search" : event.key === "End" ? "ask"
+          : currentMode === "search" ? "ask" : "search";
+        selectMode(next, true);
+      }
+    }));
 
     async function loadStats() {
       try {
         const response = await fetch("/api/stats");
         if (!response.ok) return;
         const data = await response.json();
-        document.getElementById("laws").textContent = fmt(data.laws);
-        document.getElementById("passages").textContent = fmt(data.passages);
-      } catch (_error) { /* Sem conexão até a API iniciar. */ }
+        if (Number.isFinite(Number(data.laws))) $("laws").textContent = fmt(data.laws);
+        if (Number.isFinite(Number(data.passages))) $("passages").textContent = fmt(data.passages);
+      } catch (_error) { /* Não bloqueia a navegação se a API estiver indisponível. */ }
     }
 
-    function addLink(container, label, href) {
-      if (!href || !/^https?:\/\//i.test(href)) return;
-      const anchor = el("a", "", label);
-      anchor.href = href;
-      anchor.target = "_blank";
-      anchor.rel = "noopener noreferrer";
-      container.appendChild(anchor);
+    function addExternalLink(container, label, rawUrl) {
+      if (!rawUrl || typeof rawUrl !== "string") return;
+      try {
+        const href = new URL(rawUrl);
+        if (!["http:", "https:"].includes(href.protocol)) return;
+        const anchor = make("a", "", label);
+        anchor.href = href.href;
+        anchor.target = "_blank";
+        anchor.rel = "noopener noreferrer";
+        anchor.setAttribute("aria-label", label + " (abre em nova aba)");
+        container.appendChild(anchor);
+      } catch (_error) { /* URL inválida na base: não transforma em link. */ }
+    }
+
+    function displayDate(value) {
+      if (typeof value !== "string") return "";
+      const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      return match ? match[3] + "/" + match[2] + "/" + match[1] : value.slice(0, 40);
+    }
+
+    function statusStyle(rawValue) {
+      const normalized = String(rawValue || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      if (normalized.includes("revogad")) return "is-revoked";
+      if (normalized.includes("alterad") || normalized.includes("suspend")) return "is-warn";
+      if (normalized.includes("vigente")) return "is-valid";
+      return "";
     }
 
     function render(data, mode) {
       result.replaceChildren();
-      const head = el("div", "result-head");
-      head.appendChild(el("h2", "", mode === "ask" ? "Resposta e fundamentos" : "Resultados da pesquisa"));
-      head.appendChild(el("span", "count", fmt(data.sources.length) + " trecho(s)"));
+      const sources = Array.isArray(data.sources) ? data.sources : [];
+      const head = make("div", "result-head");
+      head.appendChild(make("h2", "", mode === "ask" ? "Resposta e fundamentos" : "Dispositivos encontrados"));
+      head.appendChild(make("span", "count", fmt(sources.length) + (sources.length === 1 ? " trecho encontrado" : " trechos encontrados")));
       result.appendChild(head);
 
       if (mode === "ask") {
-        const answer = el("div", "answer");
-        answer.appendChild(el("h3", "", "Síntese da consulta"));
-        answer.appendChild(el("div", "", data.answer));
+        const answer = make("div", "answer");
+        answer.appendChild(make("h3", "", "Síntese assistida por fontes"));
+        answer.appendChild(make("div", "answer-body", data.answer || "Não foi possível gerar uma resposta."));
+        answer.appendChild(make("p", "answer-disclaimer", "Síntese automatizada quando a API está habilitada. Não substitui análise jurídica nem comprova a vigência das normas."));
         result.appendChild(answer);
       }
 
-      if (data.sources.length === 0) {
-        result.appendChild(el("div", "empty", "Nenhum trecho encontrado neste recorte. Experimente outros termos ou filtros."));
+      if (sources.length === 0) {
+        result.appendChild(make("div", "empty", "Nenhum trecho encontrado neste recorte. Tente outra expressão ou retire algum filtro. A ausência de resultados não significa que a norma não exista."));
         return;
       }
-      data.sources.forEach((source, i) => {
-        const card = el("article", "source");
-        const top = el("div", "source-top");
-        top.appendChild(el("span", "tag", source.article));
-        top.appendChild(el("span", "ref", "[" + (i + 1) + "] " + source.sphere + (source.uf ? " · " + source.uf : "")));
+
+      sources.forEach((source, index) => {
+        const card = make("article", "source");
+        const top = make("div", "source-top");
+        top.appendChild(make("span", "tag", source.article || "Trecho legislativo"));
+        top.appendChild(make("span", "ref", "[" + (index + 1) + "] " + (source.sphere || "Origem não informada") + (source.uf ? " · " + source.uf : "")));
         card.appendChild(top);
-        card.appendChild(el("h3", "", source.title));
-        card.appendChild(el("p", "", source.text));
-        const links = el("div", "links");
-        addLink(links, "Fonte oficial", source.source_url);
-        addLink(links, "Arquivo no GitHub", source.repository_url);
-        const copy = el("button", "", "Copiar trecho");
+        card.appendChild(make("h3", "", source.title || "Norma sem título informado"));
+
+        const metas = [];
+        if (source.law_type) metas.push(String(source.law_type));
+        if (source.number) metas.push("Nº " + String(source.number));
+        if (source.date) metas.push(displayDate(source.date));
+        if (metas.length) card.appendChild(make("div", "source-meta", metas.join(" · ")));
+        if (source.status) {
+          const status = make("span", "source-status " + statusStyle(source.status), "Situação informada no acervo: " + String(source.status).slice(0, 65));
+          card.appendChild(status);
+        }
+        card.appendChild(make("p", "", source.text || "Trecho não disponível."));
+        const links = make("div", "links");
+        addExternalLink(links, "Ver fonte informada ↗", source.source_url);
+        addExternalLink(links, "Conferir arquivo no repositório ↗", source.repository_url);
+        const copy = make("button", "", "Copiar trecho");
         copy.type = "button";
         copy.addEventListener("click", async () => {
           try {
-            await navigator.clipboard.writeText(source.title + " — " + source.article + "\n" + source.text + "\n" + (source.source_url || source.repository_url));
-            copy.textContent = "Copiado!";
+            const content = (source.title || "") + " — " + (source.article || "") + "\n" + (source.text || "")
+              + "\n" + (source.source_url || source.repository_url || "");
+            await navigator.clipboard.writeText(content);
+            copy.textContent = "Copiado ✓";
+            window.setTimeout(() => { copy.textContent = "Copiar trecho"; }, 1700);
           } catch (_error) {
-            copy.textContent = "Não foi possível copiar";
+            copy.textContent = "Cópia indisponível";
+            window.setTimeout(() => { copy.textContent = "Copiar trecho"; }, 1700);
           }
         });
         links.appendChild(copy);
@@ -315,47 +411,72 @@
       });
     }
 
-    async function run(mode) {
+    async function run(mode = currentMode) {
       const q = question.value.trim();
-      if (q.length < 2) {
-        question.focus();
+      if (q.length < 2) { question.focus(); return; }
+      const uf = $("uf").value.trim().toUpperCase();
+      if (uf && !/^[A-Z]{2}$/.test(uf)) {
+        result.replaceChildren(make("div", "notice error", "Informe uma UF válida com duas letras (ex.: DF) ou deixe o campo em branco."));
+        $("uf").focus();
         return;
       }
-      const filters = {
-        sphere: document.getElementById("sphere").value,
-        uf: document.getElementById("uf").value.trim().toUpperCase(),
-        law_type: document.getElementById("law_type").value.trim()
-      };
-      askButton.disabled = true;
-      searchButton.disabled = true;
-      result.replaceChildren(el("div", "notice", "Consultando os documentos indexados…"));
+      const filters = { sphere: $("sphere").value, uf, law_type: $("law_type").value.trim() };
+      if (activeRequest) activeRequest.abort();
+      const controller = new AbortController();
+      activeRequest = controller;
+      submitButton.disabled = true;
+      submitButton.setAttribute("aria-busy", "true");
+      const initialLabel = submitLabel.textContent;
+      submitLabel.textContent = "Consultando…";
+      result.replaceChildren(make("div", "notice", "Buscando dispositivos no acervo indexado…"));
       try {
         let url = "/api/ask";
-        let options = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: q, ...filters }) };
+        let options = {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({question:q,...filters}), signal:controller.signal
+        };
         if (mode === "search") {
           const params = new URLSearchParams({ q });
           Object.entries(filters).forEach(([key, value]) => { if (value) params.set(key, value); });
           url = "/api/search?" + params.toString();
-          options = {};
+          options = {signal:controller.signal};
         }
         const response = await fetch(url, options);
-        const data = await response.json();
-        if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Não foi possível realizar a pesquisa.");
-        render(data, mode);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          const message = typeof data.detail === "string" ? data.detail : "Não foi possível consultar a base. Tente novamente.";
+          throw new Error(message);
+        }
+        if (activeRequest === controller) render(data, mode);
       } catch (error) {
-        result.replaceChildren(el("div", "notice error", error.message || "Erro de conexão."));
+        if (error.name !== "AbortError" && activeRequest === controller) {
+          result.replaceChildren(make("div", "notice error", error.message || "Erro de conexão com a API."));
+        }
       } finally {
-        askButton.disabled = false;
-        searchButton.disabled = false;
+        if (activeRequest === controller) {
+          activeRequest = null;
+          submitButton.disabled = false;
+          submitButton.removeAttribute("aria-busy");
+          submitLabel.textContent = currentMode === "search" ? "Pesquisar legislação" : "Consultar com IA";
+        }
       }
     }
-    form.addEventListener("submit", event => { event.preventDefault(); run("ask"); });
-    searchButton.addEventListener("click", () => run("search"));
+
+    form.addEventListener("submit", event => { event.preventDefault(); run(currentMode); });
+    question.addEventListener("keydown", event => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        event.preventDefault();
+        form.requestSubmit();
+      }
+    });
+    $("uf").addEventListener("input", event => { event.target.value = event.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2); });
     document.querySelectorAll("[data-query]").forEach(button => button.addEventListener("click", () => {
-      question.value = button.dataset.query;
+      question.value = button.dataset.query || "";
+      selectMode("search");
       run("search");
     }));
+    selectMode("search");
     loadStats();
-  </script>
+</script>
 </body>
 </html>
