@@ -257,13 +257,15 @@ def answer_with_evidence(question, sources, *, research_mode="auto", allow_ai=Tr
     if wants_web and not use_web:
         guide = editorial_answer(question)
         if guide is not None:
-            return _message(
+            result = _message(
                 guide["answer"], mode="guia_editorial",
                 sources=guide["web_sources"], ai=False,
                 warning=("Guia editorial revisado em "
                          + guide["references_checked_at"]
                          + ". Não representa pesquisa em tempo real."),
             )
+            result["references_checked_at"] = guide["references_checked_at"]
+            return result
 
     if not api_available:
         if sources:
@@ -348,7 +350,7 @@ def answer_with_evidence(question, sources, *, research_mode="auto", allow_ai=Tr
     citations = _web_citations(response) if use_web else []
     if use_web and not citations:
         return _message(
-            "A pesquisa externa não trouxe referências verificáveis nesta "
+            "A pesquisa externa não retornou referências verificáveis nesta "
             "consulta. Reformule a pergunta ou consulte diretamente os "
             "portais oficiais. Não vou apresentar uma conclusão jurídica "
             "como se tivesse fontes confirmadas.",
@@ -370,8 +372,8 @@ def answer_with_evidence(question, sources, *, research_mode="auto", allow_ai=Tr
         )
     return _message(
         answer,
-        mode=("hibrido" if sources and research_mode != "web"
-              else "pesquisa_web") if use_web else "acervo",
+        mode=("pesquisa_web" if research_mode == "web"
+              else "hibrido") if use_web else "acervo",
         sources=citations, ai=True, web=use_web, warning=warning,
     )
 
