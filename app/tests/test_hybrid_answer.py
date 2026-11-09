@@ -40,9 +40,10 @@ def test_citations_extracted_only_from_verified_annotations():
             annotation("https://www.planalto.gov.br/ccivil_03/", "Duplicado"),
         ])
     ])])
-    assert _web_citations(response) == [{
-        "url": "https://www.planalto.gov.br/ccivil_03/", "title": "Planalto"
-    }]
+    assert _web_citations(response) == [
+        {"url": "https://www.planalto.gov.br/ccivil_03/", "title": "Planalto", "kind": "oficial"},
+        {"url": "https://evil.example/lei", "title": "Não oficial", "kind": "complementar"},
+    ]
 
 
 def test_hybrid_research_uses_web_and_exposes_sources(monkeypatch):
