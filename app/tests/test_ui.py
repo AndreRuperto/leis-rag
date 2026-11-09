@@ -93,6 +93,47 @@ def test_wcg_aa_text_and_controls(theme, primary_text):
     assert contrast(colors["--line-strong"], colors["--surface"]) >= 3
 
 
+def test_custom_sphere_dropdown():
+    """Menu customizado preserva os valores da API e acesso por teclado."""
+    from html.parser import HTMLParser
+
+    class DropdownParser(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.options = []
+            self.elements = {}
+
+        def handle_starttag(self, tag, attrs):
+            props = dict(attrs)
+            if props.get("id") in {"sphere", "sphere-trigger", "sphere-menu"}:
+                self.elements[props["id"]] = (tag, props)
+            if props.get("role") == "option":
+                self.options.append(props)
+
+    parsed = DropdownParser()
+    parsed.feed(HTML)
+    assert parsed.elements["sphere"][0] == "input"
+    assert parsed.elements["sphere"][1].get("type") == "hidden"
+    trigger = parsed.elements["sphere-trigger"][1]
+    assert trigger["aria-haspopup"] == "listbox"
+    assert trigger["aria-expanded"] == "false"
+    assert trigger["aria-controls"] == "sphere-menu"
+    menu = parsed.elements["sphere-menu"][1]
+    assert menu["role"] == "listbox"
+    assert "hidden" in menu
+    assert [item["data-value"] for item in parsed.options] == [
+        "", "federal", "estadual", "municipal", "regulador",
+        "jurisprudencia", "tratado"
+    ]
+    for behavior in ("openSphereMenu", "closeSphereMenu", "setSphere",
+                     "focusSphereOption", 'event.key === "Escape"',
+                     'event.key === "Home"', 'event.key === "End"',
+                     'event.key === "ArrowDown"', 'event.key === "ArrowUp"'):
+        assert behavior in HTML
+    assert ".filter-dropdown-menu[hidden]{display:none}" in HTML
+    assert ".filter-dropdown.opens-up .filter-dropdown-menu" in HTML
+
+
 def test_javascript_parses(tmp_path):
     node = shutil.which("node")
     if not node:
