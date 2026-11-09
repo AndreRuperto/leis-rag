@@ -1,8 +1,12 @@
 .git
-dados
 .env
+.env.*
+!.env.example
 **/__pycache__
 **/.pytest_cache
 *.pyc
 node_modules
 .venv
+# Keep only the first legal document for the public preview, not the giant corpus.
+dados/**
+!dados/constituicao.md
