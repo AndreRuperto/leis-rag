@@ -8,6 +8,7 @@ from psycopg.rows import dict_row
 
 from .db import connection
 from .ingest import encoder
+from .legal_guides import match_guide, editorial_answer
 
 REPOSITORY = "https://github.com/AndreRuperto/leis-rag/blob/main/"
 
@@ -31,6 +32,7 @@ def search(question, *, sphere=None, uf=None, law_type=None, limit=8):
     if len(question) < 2:
         return []
     filter_params = (sphere, sphere, uf, uf, law_type, law_type)
+    guide = match_guide(question)
     words = re.findall(r"[^\W\d_]{3,}", question.lower(), flags=re.UNICODE)[:14]
     or_query = " | ".join(words) if words else question.replace("'", "")
     with connection() as conn:
@@ -58,6 +60,23 @@ def search(question, *, sphere=None, uf=None, law_type=None, limit=8):
             question, or_query, question, or_query,
             "%" + question[:100] + "%", question, *filter_params
         )).fetchall()
+
+        # Segunda chance: um conceito pode não estar literal na Constituição.
+        # Mostra dispositivos relacionados, sem alegar que abordam diretamente
+        # o tema perguntado. Respeita os filtros de esfera/UF/tipo da pessoa.
+        if not lexical and guide and guide.get("constitution_labels"):
+            lexical = conn.execute("""
+                SELECT p.id, p.label, p.content, l.path, l.title, l.sphere,
+                       l.uf, l.law_type, l.number, l.law_date, l.status,
+                       l.text_version, l.source_url, 0.2::float AS score
+                FROM passages p
+                JOIN laws l ON l.id = p.law_id
+                WHERE l.path = 'dados/constituicao.md'
+                  AND p.label = ANY(%s::text[])
+            """ + _filters() + """
+                ORDER BY p.ordinal ASC
+                LIMIT 20
+            """, (list(guide["constitution_labels"]), *filter_params)).fetchall()
 
         vector_rows = []
         model = embedding_model()
@@ -172,6 +191,14 @@ def answer_with_evidence(question, sources, *, research_mode="hybrid"):
     A consulta externa só é permitida com chave de IA e opt-in operacional.
     """
     sources = sources or []
+    # Um guia editorial com referências verificadas oferece conteúdo útil
+    # quando a busca literal não encontra o termo ou a pesquisa web está
+    # desativada. Não simula uma chamada de IA.
+    web_enabled = _enabled("LEGAL_WEB_SEARCH_ENABLED") and research_mode == "hybrid"
+    if research_mode == "hybrid" and not web_enabled:
+        guide = editorial_answer(question)
+        if guide is not None:
+            return guide
     if not os.getenv("OPENAI_API_KEY"):
         if sources:
             message = (

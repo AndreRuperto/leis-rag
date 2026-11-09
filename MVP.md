@@ -67,8 +67,13 @@ apresentado pelo modelo não comprova a vigência de uma norma.
 
 O comportamento do endpoint `POST /api/ask` agora diferencia:
 - **Sem chave:** nenhum texto jurídico gerado por IA; o acervo continua disponível.
-- **Com chave, sem pesquisa externa:** responde só com trechos locais; se não encontrou
-  evidências, informa a limitação sem sugerir que inexiste legislação.
+- **Com ou sem chave, pesquisa externa desativada:** para alguns temas, um guia
+  editorial com fontes oficiais já conferidas pode contextualizar a pergunta;
+  esse conteúdo é identificado como guia, nunca como geração por IA ou busca
+  feita em tempo real. Fora dos guias, a síntese depende de documentos locais
+  e da chave da API. Se não houver evidência, o sistema explica a limitação.
+- **Com chave e acervo local:** quando não houver guia, sintetiza os dispositivos
+  recuperados; o modelo não deve inventar normas que não foram fornecidas.
 - **Com chave e `LEGAL_WEB_SEARCH_ENABLED=1`:** pesquisa obrigatória em sites oficiais
   (Planalto, STF, STJ, Senado, Câmara, CNJ e gov.br), permite relacionar
   Constituição, leis e jurisprudência, e devolve `web_sources` com URLs citadas
@@ -119,3 +124,25 @@ A busca não certifica vigência ou completude. O campo status é o conteúdo do
 3. HNSW, reclassificação dos resultados e filtros de vigência com fontes históricas.
 4. Login, permissões, rate limit e proteção contra abuso.
 5. Análise de documentos PDF e acompanhamento automático de alterações legislativas.
+
+
+## URL de produção
+
+Aplicativo com FastAPI/PostgreSQL: **https://leis-web.up.railway.app/**.
+A prévia **https://leis-preview-visual-production.up.railway.app/** serve somente
+para revisar a interface e não executa IA nem corresponde ao acervo completo.
+
+## Guia editorial de temas
+
+Os guias em `app/legal_guides.py` contêm respostas de referência e URLs
+institucionais previamente verificadas. Não há busca web em tempo real quando
+esses guias são apresentados. O primeiro guia cobre a distinção entre
+Constituição, Código Penal e ADPF 54 no tema do aborto, com referências ao
+Planalto, Senado, STF e Ministério da Saúde (revisão: 09/11/2026). Outros
+temas precisam de pesquisa, revisão e testes antes de entrar no catálogo.
+
+A busca tenta recuperar artigos constitucionais relevantes ao assunto e
+rotula o texto editorial separadamente das fontes do banco. Essa etapa não
+deve ser confundida com uma busca semântica completa. A cobertura do
+catálogo é deliberadamente limitada: o objetivo continua sendo integrar
+mais normas ao banco e habilitar RAG com atualização controlada.

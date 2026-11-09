@@ -62,7 +62,7 @@ def capabilities():
     """Descreve opções habilitadas sem expor credenciais."""
     ai = bool(os.getenv("OPENAI_API_KEY"))
     web = os.getenv("LEGAL_WEB_SEARCH_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
-    return {"ai_available": ai, "official_web_search_available": ai and web}
+    return {"ai_available": ai, "official_web_search_available": ai and web, "editorial_guides_available": True}
 
 
 @app.get("/api/search")
