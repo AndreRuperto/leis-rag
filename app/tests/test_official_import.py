@@ -75,3 +75,55 @@ def test_dry_run_does_not_write_database(monkeypatch):
 def test_unsupported_code_is_rejected():
     with pytest.raises(ValueError, match="Fonte desconhecida"):
         importer.run(["unknown"], dry_run=True)
+
+
+def test_failed_source_does_not_block_next_code(monkeypatch):
+    def fake_prepare(code, spec):
+        if code == "penal":
+            raise ConnectionError("temporarily unavailable")
+        return ("Texto válido " * 1500, 95)
+
+    monkeypatch.setattr(importer, "prepare", fake_prepare)
+    result = importer.run(["penal", "cdc"], dry_run=True)
+    assert [item["status"] for item in result] == ["failed", "validated"]
+    assert result[1]["articles"] == 95
+
+
+def test_download_falls_back_to_second_official_host(monkeypatch):
+    from io import BytesIO
+    from email.message import Message
+
+    calls = []
+
+    class Response:
+        headers = Message()
+
+        def __init__(self, address):
+            self.address = address
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def geturl(self):
+            return self.address
+
+        def read(self, limit):
+            return (b"<html><body><p>Art. 1: test</p></body></html>"
+                    + b" " * 4500)
+
+    def mock_urlopen(request, timeout):
+        calls.append(request.full_url)
+        if "presidencia.gov.br" in request.full_url:
+            raise OSError("remote disconnected")
+        return Response(request.full_url)
+
+    monkeypatch.setattr(importer, "urlopen", mock_urlopen)
+    html = importer.download_official(
+        "https://presidencia.gov.br/ccivil_03/leis/test.htm"
+    )
+    assert "Art. 1" in html
+    assert len(calls) == 3
+    assert calls[-1].startswith("https://www.planalto.gov.br/")
