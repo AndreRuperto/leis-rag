@@ -179,6 +179,18 @@ def test_all_27_flags_are_bundled_locally():
     assert "DF" in flags and "SP" in flags
 
 
+def test_dropdowns_stack_above_following_filters():
+    # Em mobile o campo Tipo não pode cobrir a lista aberta da UF.
+    assert '.fields>div:has(.filter-dropdown.is-open){position:relative;z-index:100}' in HTML
+    assert '.filter-dropdown.is-open{z-index:101}' in HTML
+    assert 'wrapper.classList.add("is-open")' in HTML
+    assert 'wrapper.classList.remove("opens-up", "is-open")' in HTML
+    assert 'sphereDropdown.classList.add("is-open")' in HTML
+    assert 'sphereDropdown.classList.remove("is-open")' in HTML
+    assert 'ufDropdown.close();' in HTML
+    assert 'lawTypeDropdown.close();' in HTML
+
+
 def test_javascript_parses(tmp_path):
     node = shutil.which("node")
     if not node:
