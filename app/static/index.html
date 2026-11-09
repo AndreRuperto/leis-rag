@@ -98,6 +98,26 @@
     .filter-dropdown-option.is-selected{background:var(--surface-tint);color:var(--brand);font-weight:750}
     .filter-dropdown-option.is-selected::after{content:"✓";font-size:14px;font-weight:850;color:var(--brand)}
     @media(prefers-reduced-motion:reduce){.filter-dropdown-trigger,.filter-dropdown-chevron{transition:none}}
+
+    /* Selects pesquisáveis: bandeiras, scroll interno e posicionamento adaptativo. */
+    .sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    .filter-selected{display:flex;align-items:center;gap:9px;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+    .filter-dropdown-popover{position:absolute;z-index:50;top:calc(100% + 7px);left:0;right:0;background:var(--surface);border:1px solid var(--line-strong);border-radius:12px;box-shadow:0 16px 38px rgba(12,25,43,.19);padding:7px}
+    .filter-dropdown-popover[hidden],.filter-dropdown-empty[hidden]{display:none}
+    :root[data-theme="dark"] .filter-dropdown-popover{box-shadow:0 18px 42px rgba(0,0,0,.42)}
+    .filter-dropdown.opens-up .filter-dropdown-popover{top:auto;bottom:calc(100% + 7px)}
+    .filter-dropdown-search{display:block;width:100%;height:43px;min-height:43px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface-alt);color:var(--ink);padding:9px 11px;font-size:13px;margin:0 0 6px}
+    .filter-dropdown-search::placeholder{color:var(--muted)}
+    .filter-dropdown-search:focus{border-color:var(--brand);outline:2px solid var(--focus);outline-offset:1px}
+    .filter-dropdown-list{overflow-y:auto;max-height:244px;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
+    .filter-dropdown-list .filter-dropdown-option{gap:8px;min-height:45px;font-size:12px;padding:9px 10px}
+    .filter-dropdown-option-label{display:flex;align-items:center;gap:9px;min-width:0}
+    .uf-flag{display:block;width:25px;height:17px;flex:none;object-fit:cover;border-radius:3px;border:1px solid rgba(128,145,160,.35);background:transparent}
+    .uf-option-code{font-weight:800;font-variant-numeric:tabular-nums;min-width:23px}
+    .uf-option-name{color:var(--muted);font-size:12px}
+    .filter-dropdown-option[aria-selected="true"] .uf-option-name{color:var(--brand)}
+    .filter-dropdown-empty{padding:13px 8px 8px;font-size:12px;color:var(--muted);text-align:center;margin:0}
+    @media(max-width:480px){.filter-dropdown-popover{min-width:0}.filter-dropdown-list{max-height:232px}}
     .filter-divider{height:1px;background:var(--line);margin:22px 0 16px}
     .stat{display:flex;justify-content:space-between;gap:10px;font-size:12px;margin:0 0 11px;color:var(--muted)}
     .stat strong{color:var(--ink);font-variant-numeric:tabular-nums;font-size:13px}
@@ -302,8 +322,52 @@
               </div>
             </div>
           </div>
-          <div><label for="uf">UF</label><input id="uf" type="text" maxlength="2" autocomplete="off" placeholder="Ex.: DF"><p class="input-hint">Opcional · duas letras</p></div>
-          <div><label for="law_type">Tipo da norma</label><input id="law_type" type="text" maxlength="100" placeholder="Ex.: Lei Ordinária"></div>
+          <div>
+            <span class="filter-label" id="uf-label">UF</span>
+            <div class="filter-dropdown" id="uf-dropdown">
+              <input type="hidden" id="uf" name="uf" value="">
+              <button class="filter-dropdown-trigger" id="uf-trigger" type="button"
+                aria-haspopup="listbox" aria-expanded="false" aria-controls="uf-menu"
+                aria-labelledby="uf-label uf-selected">
+                <span class="filter-selected" id="uf-selected">Todas as UFs</span>
+                <svg class="filter-dropdown-chevron" viewBox="0 0 24 24" width="18" height="18"
+                  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div class="filter-dropdown-popover" id="uf-popover" hidden>
+                <label class="sr-only" for="uf-query">Procurar estado ou sigla</label>
+                <input class="filter-dropdown-search" id="uf-query" type="search"
+                  placeholder="Busque estado ou sigla..." autocomplete="off">
+                <div class="filter-dropdown-list" id="uf-menu" role="listbox"
+                  aria-labelledby="uf-label"></div>
+                <p class="filter-dropdown-empty" id="uf-empty" hidden>Nenhum estado encontrado.</p>
+              </div>
+            </div>
+            <p class="input-hint">26 estados e Distrito Federal</p>
+          </div>
+          <div>
+            <span class="filter-label" id="law_type-label">Tipo da norma</span>
+            <div class="filter-dropdown" id="law_type-dropdown">
+              <input type="hidden" id="law_type" name="law_type" value="">
+              <button class="filter-dropdown-trigger" id="law_type-trigger" type="button"
+                aria-haspopup="listbox" aria-expanded="false" aria-controls="law_type-menu"
+                aria-labelledby="law_type-label law_type-selected">
+                <span class="filter-selected" id="law_type-selected">Todos os tipos</span>
+                <svg class="filter-dropdown-chevron" viewBox="0 0 24 24" width="18" height="18"
+                  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div class="filter-dropdown-popover" id="law_type-popover" hidden>
+                <label class="sr-only" for="law_type-query">Procurar tipo de norma</label>
+                <input class="filter-dropdown-search" id="law_type-query" type="search"
+                  placeholder="Busque o tipo da norma..." autocomplete="off">
+                <div class="filter-dropdown-list" id="law_type-menu" role="listbox"
+                  aria-labelledby="law_type-label"></div>
+                <p class="filter-dropdown-empty" id="law_type-empty" hidden>Nenhum tipo encontrado.</p>
+              </div>
+            </div>
+            <p class="input-hint" id="law_type-hint">Tipos comuns e normas do acervo</p>
+          </div>
         </div>
         <div class="filter-divider"></div>
         <div class="stat"><span>Normas indexadas</span><strong id="laws">—</strong></div>
@@ -313,6 +377,9 @@
     </div>
   </main>
   <footer class="site-footer"><div class="footer-inner"><p>Leis RAG · Projeto experimental. Informações para pesquisa, não aconselhamento jurídico. Confira sempre a fonte oficial e a vigência.</p><a href="https://github.com/AndreRuperto/leis-rag" target="_blank" rel="noopener noreferrer">Código e fontes do projeto</a></div></footer>
+  <script src="/assets/uf-flags-1.js"></script>
+  <script src="/assets/uf-flags-2.js"></script>
+  <script src="/assets/uf-flags-3.js"></script>
   <script>
     "use strict";
     const $ = id => document.getElementById(id);
