@@ -17,7 +17,9 @@ def test_without_api_key_does_not_claim_no_law(monkeypatch):
     result = answer_with_evidence("O que a Constituição diz sobre aborto?", [])
     assert result["ai_generated"] is False
     assert not result["web_sources"]
-    assert "não significa que não haja legislação" in result["answer"]
+    assert result["answer_mode"] == "guia_editorial"
+    assert "ADPF 54" in result["answer"]
+    assert len(result["web_sources"]) == 4
 
 
 def test_no_evidence_fails_closed_without_web_opt_in(monkeypatch):
