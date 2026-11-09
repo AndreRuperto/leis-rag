@@ -6,6 +6,9 @@
   <meta name="theme-color" content="#f6f8fb">
   <meta name="description" content="Pesquise a legislação brasileira com dispositivos recuperados e referências verificáveis.">
   <title>Leis RAG · Pesquisa jurídica com fontes</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="shortcut icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="apple-touch-icon" href="/assets/brand-icon.svg">
   <style>
     :root {
       color-scheme: light;
@@ -40,10 +43,10 @@
     .site-header{position:relative;z-index:2;background:var(--surface);border-bottom:1px solid var(--line)}
     .nav-shell{max-width:1264px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:17px 32px}
     .brand{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--ink);min-width:0}
-    .emblem{width:42px;height:42px;display:grid;place-items:center;border-radius:12px;background:var(--brand);color:#fff;font-size:25px;line-height:1;font-weight:600}
-    :root[data-theme="dark"] .emblem{color:#0b1220}
-    .brand-name{font-size:18px;font-weight:850;letter-spacing:-.5px;line-height:1.18}
-    .brand-caption{font-size:11px;font-weight:550;color:var(--muted);letter-spacing:.1px}
+    .brand-identity{display:block;width:204px;height:auto;max-width:100%;object-fit:contain}
+    :root[data-theme="dark"] .brand-identity{background:#f8fafc;border-radius:12px;padding:4px 7px;box-shadow:0 0 0 1px rgba(255,255,255,.16)}
+    @media(max-width:480px){.brand-identity{width:164px}}
+    @media(max-width:360px){.brand-identity{width:142px}}
     .header-actions{display:flex;align-items:center;gap:22px}
     .header-nav{display:flex;gap:22px;align-items:center}
     .header-nav a{font-size:13px;font-weight:650;text-decoration:none;color:var(--muted)}
@@ -202,8 +205,7 @@
   <header class="site-header">
     <div class="nav-shell">
       <a class="brand" href="/" aria-label="Leis RAG — página inicial">
-        <span class="emblem" aria-hidden="true">§</span>
-        <span><span class="brand-name" style="display:block">LEIS RAG</span><span class="brand-caption" style="display:block">Pesquisa legislativa</span></span>
+        <img class="brand-identity" src="/assets/brand-logo.svg" alt="Leis RAG — Pesquisa Jurídica" width="204" height="51" decoding="async">
       </a>
       <div class="header-actions">
         <nav class="header-nav" aria-label="Navegação principal">
