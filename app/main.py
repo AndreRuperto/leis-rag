@@ -6,6 +6,7 @@ from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Query, Request, Header
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from openai import OpenAIError
 from pydantic import BaseModel, Field
 
@@ -36,6 +37,17 @@ class AskRequest(BaseModel):
     law_type: str | None = Field(default=None, max_length=100)
     limit: int = Field(default=6, ge=1, le=12)
     research_mode: Literal["auto", "hybrid", "web", "acervo"] = "auto"
+
+
+STATIC_DIR = Path(__file__).parent / "static"
+app.mount("/assets", StaticFiles(directory=STATIC_DIR), name="assets")
+
+
+@app.get("/favicon.svg", include_in_schema=False)
+def favicon():
+    return FileResponse(
+        STATIC_DIR / "brand-icon.svg", media_type="image/svg+xml"
+    )
 
 
 @app.get("/")
