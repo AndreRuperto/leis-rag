@@ -22,3 +22,9 @@ O histórico do git do repositório original (uma norma por commit, assinada por
 ## Aviso
 
 Os textos têm caráter informativo e **não substituem a publicação no Diário Oficial**. São conversões automáticas e, em parte, OCR de documentos escaneados. Confira sempre a fonte indicada no cabeçalho de cada arquivo antes de citar.
+
+## Aplicação de pesquisa jurídica (MVP)
+
+Uma primeira versão de API e interface web está disponível na pasta [app/](app/). Possui indexação incremental de normas, busca por dispositivos, filtros e respostas fundamentadas nas fontes (IA e vetores opcionais).
+
+Veja [MVP.md](MVP.md) para instalação com Docker, comandos de indexação, API e limitações.

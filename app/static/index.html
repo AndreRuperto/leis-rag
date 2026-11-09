@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1220">
+  <title>Leis RAG · Pesquisa jurídica com fontes</title>
+  <style>
+    :root { color-scheme:dark; --bg:#0b1220; --panel:#111d30; --panel2:#16253b; --line:#2a3c52; --ink:#edf4fb; --muted:#9aafc6; --accent:#69e0bb; --blue:#8eb5f3; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:radial-gradient(ellipse 75% 45% at 85% -10%,#21425a 0,transparent 75%),var(--bg); font:15px/1.55 system-ui,-apple-system,Segoe UI,Arial,sans-serif; color:var(--ink); min-height:100vh; }
+    a { color:var(--accent); text-underline-offset:3px; }
+    button,input,select,textarea { font:inherit; }
+    button { cursor:pointer; }
+    :focus-visible { outline:3px solid var(--accent); outline-offset:2px; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:16px; border-bottom:1px solid var(--line); padding:18px max(24px,calc((100vw - 1240px)/2)); background:#0b1220b8; }
+    .brand { display:flex; align-items:center; gap:12px; font-weight:800; font-size:19px; letter-spacing:.3px; }
+    .emblem { display:grid; place-items:center; width:38px; height:38px; background:var(--accent); color:#0b1220; border-radius:12px; font-size:20px; }
+    .beta { color:var(--accent); border:1px solid #367c6e; border-radius:99px; padding:2px 8px; font-size:10px; letter-spacing:1px; }
+    header p { color:var(--muted); margin:0; font-size:12px; }
+    main { display:grid; grid-template-columns:260px minmax(0,1fr); max-width:1240px; margin:auto; padding:42px 24px 64px; gap:32px; }
+    aside { align-self:start; position:sticky; top:20px; background:#111d30dd; border:1px solid var(--line); border-radius:18px; padding:23px; }
+    .eyebrow { text-transform:uppercase; letter-spacing:1.7px; font-weight:800; font-size:11px; color:var(--accent); margin:0 0 9px; }
+    h1 { font-size:clamp(28px,4.5vw,45px); letter-spacing:-1.6px; line-height:1.14; margin:0 0 13px; max-width:730px; }
+    .intro { color:var(--muted); font-size:16px; margin:0 0 27px; max-width:650px; }
+    .fields { display:grid; gap:16px; }
+    label { display:block; color:#c8d7e6; font-size:12px; font-weight:700; margin-bottom:6px; }
+    select,input[type=text],textarea { border:1px solid #3b5168; background:#0d1829; color:var(--ink); border-radius:11px; width:100%; padding:11px 12px; }
+    input::placeholder,textarea::placeholder { color:#8396a9; }
+    select { color:var(--ink); }
+    aside h2 { font-size:16px; margin:0 0 20px; }
+    .footnote { font-size:12px; color:var(--muted); margin:21px 0 0; }
+    .stat { display:flex; justify-content:space-between; color:var(--muted); gap:12px; padding-top:13px; border-top:1px solid var(--line); margin-top:19px; font-size:12px; }
+    .stat strong { color:var(--ink); font-variant-numeric:tabular-nums; }
+    .search-panel { border:1px solid var(--line); background:#111e30ee; padding:22px; border-radius:19px; box-shadow:0 20px 60px #050a1250; }
+    textarea { min-height:94px; resize:vertical; font-size:16px; padding:16px; }
+    .actions { display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; align-items:center; margin-top:15px; }
+    .mode { color:var(--muted); font-size:12px; }
+    .btns { display:flex; gap:9px; flex-wrap:wrap; }
+    .primary,.secondary { border-radius:10px; padding:11px 17px; font-size:13px; font-weight:800; border:1px solid transparent; }
+    .primary { color:#07251d; background:var(--accent); }
+    .primary:hover { background:#97f4d8; }
+    .secondary { color:var(--ink); background:#22354e; border-color:#405670; }
+    .secondary:hover { background:#30445f; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .examples { display:flex; gap:9px; flex-wrap:wrap; margin:17px 0 0; }
+    .example { color:#b7cbe0; background:#18283b; padding:7px 11px; border-radius:99px; border:1px solid var(--line); font-size:12px; }
+    .example:hover { border-color:var(--accent); color:var(--accent); }
+    .result { margin-top:26px; }
+    .result-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:14px; }
+    .result-head h2 { margin:0; font-size:20px; letter-spacing:-.4px; }
+    .count { color:var(--muted); font-size:13px; }
+    .notice { border:1px solid #365772; background:#172c42; border-radius:13px; color:#c9e3f4; padding:14px 17px; margin-bottom:17px; }
+    .answer { border:1px solid #306858; background:linear-gradient(145deg,#143b36,#132b30); border-radius:15px; padding:20px; white-space:pre-wrap; margin-bottom:18px; color:#e2fff6; }
+    .answer h3 { margin:0 0 11px; color:var(--accent); font-size:14px; }
+    .source { border:1px solid var(--line); background:#101c2e; padding:18px 20px; border-radius:15px; margin-bottom:11px; }
+    .source-top { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:7px; }
+    .tag { display:inline-block; color:#a9d1ff; background:#203653; border-radius:7px; padding:3px 9px; font-size:11px; font-weight:800; }
+    .ref { font-size:11px; color:var(--muted); }
+    .source h3 { margin:0 0 10px; font-size:17px; }
+    .source p { margin:0; white-space:pre-wrap; color:#c8d6e4; font-size:13px; max-height:230px; overflow:auto; border-left:2px solid #395c61; padding-left:12px; }
+    .links { display:flex; align-items:center; flex-wrap:wrap; gap:16px; margin-top:12px; font-size:12px; }
+    .links button { background:none; border:0; color:var(--blue); padding:0; }
+    .empty { border:1px dashed var(--line); border-radius:14px; padding:30px 20px; text-align:center; color:var(--muted); }
+    .error { border-color:#a45a5a; background:#3e2229; color:#ffd8dc; }
+    footer { border-top:1px solid var(--line); text-align:center; color:var(--muted); font-size:12px; padding:24px; }
+    @media(max-width:820px) { main { grid-template-columns:1fr; padding:24px 16px; gap:22px; } aside { position:static; order:2; } main>section { order:1; } header { padding:15px 16px; } header p { display:none; } }
+    @media(max-width:450px) { .search-panel { padding:15px; } .actions { align-items:stretch; } .btns,.btns button { width:100%; } .source { padding:16px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="emblem" aria-hidden="true">§</span> LEIS RAG <span class="beta">MVP</span></div>
+    <p>Pesquisa jurídica fundamentada na legislação brasileira</p>
+  </header>
+  <main>
+    <aside aria-label="Filtros">
+      <p class="eyebrow">Refinar resultados</p>
+      <h2>Filtros da pesquisa</h2>
+      <div class="fields">
+        <div><label for="sphere">Esfera</label>
+          <select id="sphere">
+            <option value="">Todas as esferas</option>
+            <option value="federal">Federal</option>
+            <option value="estadual">Estadual / DF</option>
+            <option value="municipal">Municipal</option>
+            <option value="regulador">Órgãos reguladores</option>
+            <option value="jurisprudencia">Jurisprudência</option>
+            <option value="tratado">Tratados</option>
+          </select>
+        </div>
+        <div><label for="uf">UF (opcional)</label><input id="uf" type="text" maxlength="2" placeholder="Ex.: DF"></div>
+        <div><label for="law_type">Tipo da norma (opcional)</label><input id="law_type" type="text" placeholder="Ex.: Lei Ordinária"></div>
+      </div>
+      <p class="footnote">Os resultados incluem apenas os documentos que você indexou. Textos convertidos não substituem os Diários Oficiais.</p>
+      <div class="stat"><span>Normas indexadas</span><strong id="laws">—</strong></div>
+      <div class="stat"><span>Trechos disponíveis</span><strong id="passages">—</strong></div>
+    </aside>
+    <section>
+      <p class="eyebrow">Encontre a base legal</p>
+      <h1>Legislação brasileira, com fontes que você pode conferir.</h1>
+      <p class="intro">Pesquise por assunto, lei ou artigo. Cada resultado traz o trecho encontrado e o caminho para a publicação de origem.</p>
+      <form class="search-panel" id="form">
+        <label for="question">Sua pergunta</label>
+        <textarea id="question" required minlength="2" maxlength="500" placeholder="Ex.: O que a Constituição estabelece sobre a liberdade de expressão?"></textarea>
+        <div class="actions">
+          <span class="mode">Busca textual + busca semântica opcional</span>
+          <div class="btns">
+            <button class="secondary" type="button" id="search-btn">Buscar artigos</button>
+            <button class="primary" type="submit" id="ask-btn">Consultar IA</button>
+          </div>
+        </div>
+      </form>
+      <div class="examples" aria-label="Exemplos">
+        <button class="example" type="button" data-query="liberdade de expressão">Liberdade de expressão</button>
+        <button class="example" type="button" data-query="direitos fundamentais">Direitos fundamentais</button>
+        <button class="example" type="button" data-query="Art. 5º da Constituição">Art. 5º da Constituição</button>
+      </div>
+      <div id="result" class="result" aria-live="polite">
+        <div class="empty">Faça uma pesquisa para consultar os dispositivos indexados.</div>
+      </div>
+    </section>
+  </main>
+  <footer>Leis RAG · Projeto experimental de pesquisa. Sempre confira a fonte oficial e a vigência da norma.</footer>
+  <script>
+    const form = document.getElementById("form");
+    const question = document.getElementById("question");
+    const result = document.getElementById("result");
+    const askButton = document.getElementById("ask-btn");
+    const searchButton = document.getElementById("search-btn");
+    const el = (tag, cls, text) => {
+      const node = document.createElement(tag);
+      if (cls) node.className = cls;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    };
+    const fmt = number => Number(number).toLocaleString("pt-BR");
+
+    async function loadStats() {
+      try {
+        const response = await fetch("/api/stats");
+        if (!response.ok) return;
+        const data = await response.json();
+        document.getElementById("laws").textContent = fmt(data.laws);
+        document.getElementById("passages").textContent = fmt(data.passages);
+      } catch (_error) { /* Sem conexão até a API iniciar. */ }
+    }
+
+    function addLink(container, label, href) {
+      if (!href || !/^https?:\/\//i.test(href)) return;
+      const anchor = el("a", "", label);
+      anchor.href = href;
+      anchor.target = "_blank";
+      anchor.rel = "noopener noreferrer";
+      container.appendChild(anchor);
+    }
+
+    function render(data, mode) {
+      result.replaceChildren();
+      const head = el("div", "result-head");
+      head.appendChild(el("h2", "", mode === "ask" ? "Resposta e fundamentos" : "Resultados da pesquisa"));
+      head.appendChild(el("span", "count", fmt(data.sources.length) + " trecho(s)"));
+      result.appendChild(head);
+
+      if (mode === "ask") {
+        const answer = el("div", "answer");
+        answer.appendChild(el("h3", "", "Síntese da consulta"));
+        answer.appendChild(el("div", "", data.answer));
+        result.appendChild(answer);
+      }
+
+      if (data.sources.length === 0) {
+        result.appendChild(el("div", "empty", "Nenhum trecho encontrado neste recorte. Experimente outros termos ou filtros."));
+        return;
+      }
+      data.sources.forEach((source, i) => {
+        const card = el("article", "source");
+        const top = el("div", "source-top");
+        top.appendChild(el("span", "tag", source.article));
+        top.appendChild(el("span", "ref", "[" + (i + 1) + "] " + source.sphere + (source.uf ? " · " + source.uf : "")));
+        card.appendChild(top);
+        card.appendChild(el("h3", "", source.title));
+        card.appendChild(el("p", "", source.text));
+        const links = el("div", "links");
+        addLink(links, "Fonte oficial", source.source_url);
+        addLink(links, "Arquivo no GitHub", source.repository_url);
+        const copy = el("button", "", "Copiar trecho");
+        copy.type = "button";
+        copy.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(source.title + " — " + source.article + "\n" + source.text + "\n" + (source.source_url || source.repository_url));
+            copy.textContent = "Copiado!";
+          } catch (_error) {
+            copy.textContent = "Não foi possível copiar";
+          }
+        });
+        links.appendChild(copy);
+        card.appendChild(links);
+        result.appendChild(card);
+      });
+    }
+
+    async function run(mode) {
+      const q = question.value.trim();
+      if (q.length < 2) {
+        question.focus();
+        return;
+      }
+      const filters = {
+        sphere: document.getElementById("sphere").value,
+        uf: document.getElementById("uf").value.trim().toUpperCase(),
+        law_type: document.getElementById("law_type").value.trim()
+      };
+      askButton.disabled = true;
+      searchButton.disabled = true;
+      result.replaceChildren(el("div", "notice", "Consultando os documentos indexados…"));
+      try {
+        let url = "/api/ask";
+        let options = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: q, ...filters }) };
+        if (mode === "search") {
+          const params = new URLSearchParams({ q });
+          Object.entries(filters).forEach(([key, value]) => { if (value) params.set(key, value); });
+          url = "/api/search?" + params.toString();
+          options = {};
+        }
+        const response = await fetch(url, options);
+        const data = await response.json();
+        if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Não foi possível realizar a pesquisa.");
+        render(data, mode);
+      } catch (error) {
+        result.replaceChildren(el("div", "notice error", error.message || "Erro de conexão."));
+      } finally {
+        askButton.disabled = false;
+        searchButton.disabled = false;
+      }
+    }
+    form.addEventListener("submit", event => { event.preventDefault(); run("ask"); });
+    searchButton.addEventListener("click", () => run("search"));
+    document.querySelectorAll("[data-query]").forEach(button => button.addEventListener("click", () => {
+      question.value = button.dataset.query;
+      run("search");
+    }));
+    loadStats();
+  </script>
+</body>
+</html>
