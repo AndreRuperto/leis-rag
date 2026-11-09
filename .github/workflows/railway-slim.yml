@@ -1,0 +1,85 @@
+name: Railway · sincronizar deploy enxuto
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "Dockerfile"
+      - ".dockerignore"
+      - "dados/constituicao.md"
+      - ".github/workflows/railway-slim.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: railway-slim-deploy
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Atualizar branch deploy/railway-slim
+    runs-on: ubuntu-latest
+    steps:
+      - name: Construir árvore Git mínima, sem baixar o acervo completo
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const head = await github.rest.git.getRef({
+              owner, repo, ref: "heads/main"
+            });
+            const mainSha = head.data.object.sha;
+            const main = await github.rest.git.getCommit({
+              owner, repo, commit_sha: mainSha
+            });
+            const root = await github.rest.git.getTree({
+              owner, repo, tree_sha: main.data.tree.sha
+            });
+            const entry = (nodes, name, type) => {
+              const result = nodes.find(item => item.path === name && item.type === type);
+              if (!result) throw new Error("Arquivo esperado ausente: " + name);
+              return result;
+            };
+            const app = entry(root.data.tree, "app", "tree");
+            const dados = entry(root.data.tree, "dados", "tree");
+            const docker = entry(root.data.tree, "Dockerfile", "blob");
+            const dockerignore = entry(root.data.tree, ".dockerignore", "blob");
+            const dataTree = await github.rest.git.getTree({
+              owner, repo, tree_sha: dados.sha
+            });
+            const constitution = entry(dataTree.data.tree, "constituicao.md", "blob");
+
+            // Importa a árvore inteira de app (sem o dataset), mantendo
+            // apenas o documento mínimo usado pela etapa de inicialização.
+            const slim = await github.rest.git.createTree({
+              owner, repo,
+              tree: [
+                { path: "app", mode: "040000", type: "tree", sha: app.sha },
+                { path: "Dockerfile", mode: "100644", type: "blob", sha: docker.sha },
+                { path: ".dockerignore", mode: "100644", type: "blob", sha: dockerignore.sha },
+                { path: "dados/constituicao.md", mode: "100644", type: "blob", sha: constitution.sha }
+              ]
+            });
+            const ref = "heads/deploy/railway-slim";
+            const current = await github.rest.git.getRef({ owner, repo, ref });
+            const currentCommit = await github.rest.git.getCommit({
+              owner, repo, commit_sha: current.data.object.sha
+            });
+            if (currentCommit.data.tree.sha === slim.data.sha) {
+              core.info("Conteúdo de deploy sem alterações; nenhuma publicação necessária.");
+              return;
+            }
+            const commit = await github.rest.git.createCommit({
+              owner, repo,
+              message: "deploy(slim): sincroniza main " + mainSha.slice(0, 12),
+              tree: slim.data.sha,
+              parents: [current.data.object.sha],
+            });
+            await github.rest.git.updateRef({
+              owner, repo, ref, sha: commit.data.sha, force: false
+            });
+            core.info("Branch de deploy atualizada: " + commit.data.sha);
