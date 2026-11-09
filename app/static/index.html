@@ -460,6 +460,27 @@
       if (!sphereDropdown.contains(event.target)) closeSphereMenu();
     });
 
+    async function loadCapabilities() {
+      try {
+        const response = await fetch("/api/capabilities");
+        if (!response.ok) return;
+        const data = await response.json();
+        aiAvailable = data.ai_available === true;
+        const notice = $("ai-availability");
+        notice.hidden = false;
+        if (!aiAvailable) {
+          tabAsk.disabled = true;
+          tabAsk.setAttribute("aria-disabled", "true");
+          notice.textContent = "Síntese por IA não configurada neste servidor. A busca de dispositivos continua disponível.";
+          selectMode("search");
+        } else {
+          notice.textContent = data.official_web_search_available
+            ? "Consulta híbrida: a IA cruza documentos do acervo com fontes oficiais externas."
+            : "A IA sintetiza os documentos do acervo. Pesquisa em fontes externas não está habilitada.";
+        }
+      } catch (_error) { /* API de prévia ou versão antiga. */ }
+    }
+
     async function loadStats() {
       try {
         const response = await fetch("/api/stats");
@@ -637,6 +658,7 @@
     }));
     selectMode("search");
     loadStats();
+    loadCapabilities();
 </script>
 </body>
 </html>
