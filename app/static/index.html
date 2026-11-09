@@ -115,6 +115,7 @@
     .uf-flag{display:block;width:25px;height:17px;flex:none;object-fit:cover;border-radius:3px;border:1px solid rgba(128,145,160,.35);background:transparent}
     .uf-option-code{font-weight:800;font-variant-numeric:tabular-nums;min-width:23px}
     .uf-option-name{color:var(--muted);font-size:12px}
+    .filter-option-count{margin-left:auto;min-width:20px;font-size:11px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
     .filter-dropdown-option[aria-selected="true"] .uf-option-name{color:var(--brand)}
     .filter-dropdown-empty{padding:13px 8px 8px;font-size:12px;color:var(--muted);text-align:center;margin:0}
     @media(max-width:480px){.filter-dropdown-popover{min-width:0}.filter-dropdown-list{max-height:232px}}
@@ -566,6 +567,246 @@
       if (!sphereDropdown.contains(event.target)) closeSphereMenu();
     });
 
+
+    // Os 27 estados e o DF usam arte vetorial local em CC0.
+    const UF_REGIONS = [
+      ["AC","Acre"],["AL","Alagoas"],["AP","Amapá"],["AM","Amazonas"],
+      ["BA","Bahia"],["CE","Ceará"],["DF","Distrito Federal"],["ES","Espírito Santo"],
+      ["GO","Goiás"],["MA","Maranhão"],["MT","Mato Grosso"],["MS","Mato Grosso do Sul"],
+      ["MG","Minas Gerais"],["PA","Pará"],["PB","Paraíba"],["PR","Paraná"],
+      ["PE","Pernambuco"],["PI","Piauí"],["RJ","Rio de Janeiro"],
+      ["RN","Rio Grande do Norte"],["RS","Rio Grande do Sul"],["RO","Rondônia"],
+      ["RR","Roraima"],["SC","Santa Catarina"],["SP","São Paulo"],
+      ["SE","Sergipe"],["TO","Tocantins"]
+    ].map(([value,name]) => ({value,name}));
+
+    const COMMON_LAW_TYPES = [
+      "Constituição Federal", "Emenda Constitucional", "Lei Ordinária",
+      "Lei Complementar", "Decreto", "Decreto-Lei", "Medida Provisória",
+      "Resolução", "Portaria", "Instrução Normativa", "Lei Orgânica",
+      "Tratado Internacional", "Súmula"
+    ];
+
+    const normalizeFilter = text => String(text || "").normalize("NFD")
+      .replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("pt-BR").trim();
+
+    function makeFlag(uf) {
+      const svg = (window.LEIS_UF_FLAGS || {})[uf];
+      if (!svg) return null;
+      const icon = make("img", "uf-flag");
+      icon.alt = "";
+      icon.width = 25;
+      icon.height = 17;
+      icon.loading = "lazy";
+      icon.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+      return icon;
+    }
+
+    function setupFilterDropdown(id, initialOptions, emptyLabel) {
+      const wrapper = $(id + "-dropdown");
+      const button = $(id + "-trigger");
+      const popover = $(id + "-popover");
+      const menu = $(id + "-menu");
+      const searchInput = $(id + "-query");
+      const hiddenInput = $(id);
+      const selectedLabel = $(id + "-selected");
+      const empty = $(id + "-empty");
+      let entries = initialOptions.slice();
+      let visible = [];
+
+      function findItem(value) {
+        return entries.find(entry => entry.value === value) || entries[0];
+      }
+
+      function optionLabel(entry) {
+        const text = make("span","filter-dropdown-option-label");
+        if (id === "uf" && entry.value) {
+          const flag = makeFlag(entry.value);
+          if (flag) text.appendChild(flag);
+          text.appendChild(make("span","uf-option-code",entry.value));
+          text.appendChild(make("span","uf-option-name",entry.name));
+        } else {
+          text.appendChild(make("span","",entry.name));
+        }
+        return text;
+      }
+
+      function showSelection(entry) {
+        selectedLabel.replaceChildren(optionLabel(entry));
+      }
+
+      function choose(value) {
+        const chosen = findItem(value);
+        hiddenInput.value = chosen.value;
+        showSelection(chosen);
+        hiddenInput.dispatchEvent(new Event("change", {bubbles:true}));
+        close(true);
+      }
+
+      function focusOption(index) {
+        if (!visible.length) return;
+        const target = visible[(index + visible.length) % visible.length];
+        target.focus({preventScroll:true});
+        target.scrollIntoView({block:"nearest"});
+      }
+
+      function render() {
+        const term = normalizeFilter(searchInput.value);
+        visible = [];
+        menu.replaceChildren();
+        for (const entry of entries) {
+          if (term && !normalizeFilter(entry.name + " " + entry.value).includes(term)) continue;
+          const selected = hiddenInput.value === entry.value;
+          const option = make("div","filter-dropdown-option" + (selected ? " is-selected" : ""));
+          option.setAttribute("role","option");
+          option.setAttribute("tabindex","-1");
+          option.setAttribute("aria-selected",String(selected));
+          option.dataset.value = entry.value;
+          option.appendChild(optionLabel(entry));
+          if (id === "law_type" && entry.count !== undefined) {
+            option.appendChild(make("span","filter-option-count",
+              entry.count ? String(entry.count) : "—"));
+            option.setAttribute("aria-label", entry.name + " (" + entry.count + " normas indexadas)");
+          }
+          option.addEventListener("click",() => choose(entry.value));
+          option.addEventListener("keydown",event => {
+            const index = visible.indexOf(option);
+            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+              event.preventDefault();
+              focusOption(index + (event.key === "ArrowDown" ? 1 : -1));
+            } else if (event.key === "Home" || event.key === "End") {
+              event.preventDefault();
+              focusOption(event.key === "Home" ? 0 : visible.length - 1);
+            } else if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              choose(entry.value);
+            } else if (event.key === "Escape") {
+              event.preventDefault();
+              close(true);
+            } else if (event.key === "Tab") {
+              close();
+            } else if (event.key.length === 1 && !event.altKey && !event.ctrlKey && !event.metaKey) {
+              searchInput.value += event.key;
+              render();
+              searchInput.focus();
+              event.preventDefault();
+            }
+          });
+          visible.push(option);
+          menu.appendChild(option);
+        }
+        empty.hidden = visible.length > 0;
+      }
+
+      function close(focusButton=false) {
+        if (popover.hidden) return;
+        popover.hidden = true;
+        button.setAttribute("aria-expanded","false");
+        wrapper.classList.remove("opens-up");
+        searchInput.value = "";
+        if (focusButton) button.focus();
+      }
+
+      function open() {
+        // Apenas um dos dropdowns pode permanecer aberto.
+        closeSphereMenu();
+        for (const other of [ufDropdown, lawTypeDropdown]) {
+          if (other && other.id !== id) other.close();
+        }
+        render();
+        const rect = button.getBoundingClientRect();
+        const below = window.innerHeight - rect.bottom - 12;
+        const above = rect.top - 12;
+        const up = below < 285 && above > below;
+        wrapper.classList.toggle("opens-up",up);
+        menu.style.maxHeight = Math.max(70, Math.min(244, (up ? above : below) - 84)) + "px";
+        popover.hidden = false;
+        button.setAttribute("aria-expanded","true");
+        searchInput.focus();
+      }
+
+      button.addEventListener("click",()=> popover.hidden ? open() : close(true));
+      button.addEventListener("keydown",event => {
+        if (["ArrowDown","ArrowUp","Home","End"].includes(event.key)) {
+          event.preventDefault();
+          if (popover.hidden) open();
+          focusOption(event.key === "End" ? visible.length - 1 : 0);
+        } else if (event.key === "Escape") {
+          close(true);
+        }
+      });
+      searchInput.addEventListener("input",render);
+      searchInput.addEventListener("keydown",event => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          close(true);
+        } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+          event.preventDefault();
+          focusOption(event.key === "ArrowDown" ? 0 : visible.length - 1);
+        } else if (event.key === "Enter" && visible.length === 1) {
+          event.preventDefault();
+          choose(visible[0].dataset.value);
+        } else if (event.key === "Tab") {
+          close();
+        }
+      });
+      document.addEventListener("pointerdown",event => {
+        if (!wrapper.contains(event.target)) close();
+      });
+      document.addEventListener("focusin",event => {
+        if (!wrapper.contains(event.target)) close();
+      });
+
+      showSelection(entries[0]);
+      return {
+        id, close,
+        setOptions(next) {
+          const value = hiddenInput.value;
+          entries = next;
+          const chosen = entries.find(entry => entry.value === value) || entries[0];
+          hiddenInput.value = chosen.value;
+          showSelection(chosen);
+          if (!popover.hidden) render();
+        }
+      };
+    }
+
+    const ufDropdown = setupFilterDropdown(
+      "uf", [{value:"",name:"Todas as UFs"}, ...UF_REGIONS], "Todas as UFs"
+    );
+    const lawTypeDropdown = setupFilterDropdown(
+      "law_type",
+      [{value:"",name:"Todos os tipos"}, ...COMMON_LAW_TYPES.map(name => ({value:name,name}))],
+      "Todos os tipos"
+    );
+
+    async function loadLawTypes() {
+      try {
+        const response = await fetch("/api/filter-options");
+        if (!response.ok) return;
+        const data = await response.json();
+        const actual = Array.isArray(data.law_types) ? data.law_types : [];
+        const combined = new Map();
+        for (const type of COMMON_LAW_TYPES) {
+          combined.set(normalizeFilter(type),{value:type,name:type,count:0});
+        }
+        for (const row of actual) {
+          if (!row || typeof row.value !== "string") continue;
+          const value = row.value.trim();
+          if (!value) continue;
+          const key = normalizeFilter(value);
+          combined.set(key,{value,name:value,count:Number(row.count) || 0});
+        }
+        const types = [...combined.values()].sort((a,b) =>
+          (b.count - a.count) || a.name.localeCompare(b.name,"pt-BR")
+        );
+        lawTypeDropdown.setOptions([{value:"",name:"Todos os tipos"},...types]);
+        $("law_type-hint").textContent = "Contagem por tipo no acervo (— = sem documentos)";
+      } catch (_error) {
+        // Sem resposta do endpoint, mantém categorias de normas comuns.
+      }
+    }
+
     async function loadCapabilities() {
       try {
         const response = await fetch("/api/capabilities");
@@ -830,7 +1071,7 @@
         form.requestSubmit();
       }
     });
-    $("uf").addEventListener("input", event => { event.target.value = event.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2); });
+
     document.querySelectorAll("[data-query]").forEach(button => button.addEventListener("click", () => {
       question.value = button.dataset.query || "";
       selectMode("search");
@@ -839,6 +1080,7 @@
     selectMode("search");
     loadStats();
     loadCapabilities();
+    loadLawTypes();
 </script>
 </body>
 </html>
