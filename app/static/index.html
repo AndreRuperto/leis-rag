@@ -691,6 +691,12 @@
         return;
       }
       const filters = { sphere: $("sphere").value, uf, law_type: $("law_type").value.trim() };
+      if (mode === "ask" && providerEnabled && !aiAccessCode) {
+        $("ai-auth-panel").hidden = false;
+        $("ai-access-code").focus();
+        result.replaceChildren(make("div", "notice", "Digite primeiro o código privado para liberar a consulta com IA."));
+        return;
+      }
       if (activeRequest) activeRequest.abort();
       const controller = new AbortController();
       activeRequest = controller;
@@ -701,8 +707,18 @@
       try {
         let url = "/api/ask";
         let options = {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({question:q,...filters}), signal:controller.signal
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(providerEnabled && aiAccessCode ? {"X-Leis-Access-Token": aiAccessCode} : {})
+          },
+          body: JSON.stringify({
+            question:q, ...filters,
+            research_mode: providerEnabled
+              ? (document.querySelector('input[name="research_mode"]:checked')?.value || "auto")
+              : "auto"
+          }),
+          signal:controller.signal
         };
         if (mode === "search") {
           const params = new URLSearchParams({ q });
@@ -713,6 +729,10 @@
         const response = await fetch(url, options);
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
+          if (response.status === 403 && providerEnabled) {
+            aiAccessCode = "";
+            $("ai-auth-panel").hidden = false;
+          }
           const message = typeof data.detail === "string" ? data.detail : "Não foi possível consultar a base. Tente novamente.";
           throw new Error(message);
         }
