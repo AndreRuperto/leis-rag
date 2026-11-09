@@ -111,6 +111,7 @@
     .answer-disclaimer{margin:17px 0 0;padding-top:13px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
     .source{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px 26px;margin-bottom:13px;box-shadow:0 1px 3px rgba(25,51,75,.025)}
     .source:hover{border-color:var(--line-strong)}
+    .source p.is-expanded{max-height:none;overflow:visible}
     .source-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
     .tag{border:1px solid var(--line);background:var(--surface-tint);color:var(--brand);padding:4px 10px;border-radius:7px;font-size:12px;font-weight:800}
     .ref{font-size:12px;color:var(--muted)}
@@ -275,7 +276,7 @@
         const stored = localStorage.getItem("leisrag-theme");
         if (stored === "dark" || stored === "light") return stored;
       } catch (_error) { /* armazenamento opcional */ }
-      return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      return "light";
     }
 
     applyTheme(readThemePreference());
@@ -387,8 +388,20 @@
           const status = make("span", "source-status " + statusStyle(source.status), "Situação informada no acervo: " + String(source.status).slice(0, 65));
           card.appendChild(status);
         }
-        card.appendChild(make("p", "", source.text || "Trecho não disponível."));
+        const legalText = make("p", "", source.text || "Trecho não disponível.");
+        card.appendChild(legalText);
         const links = make("div", "links");
+        if (String(source.text || "").length > 700) {
+          const expand = make("button", "", "Expandir trecho");
+          expand.type = "button";
+          expand.setAttribute("aria-expanded", "false");
+          expand.addEventListener("click", () => {
+            const expanded = legalText.classList.toggle("is-expanded");
+            expand.setAttribute("aria-expanded", String(expanded));
+            expand.textContent = expanded ? "Recolher trecho" : "Expandir trecho";
+          });
+          links.appendChild(expand);
+        }
         addExternalLink(links, "Ver fonte informada ↗", source.source_url);
         addExternalLink(links, "Conferir arquivo no repositório ↗", source.repository_url);
         const copy = make("button", "", "Copiar trecho");
@@ -426,7 +439,6 @@
       activeRequest = controller;
       submitButton.disabled = true;
       submitButton.setAttribute("aria-busy", "true");
-      const initialLabel = submitLabel.textContent;
       submitLabel.textContent = "Consultando…";
       result.replaceChildren(make("div", "notice", "Buscando dispositivos no acervo indexado…"));
       try {
