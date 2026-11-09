@@ -54,6 +54,12 @@ def test_ingest_and_query_postgresql(tmp_path, monkeypatch):
             assert any(item["number"] == "999001" for item in sources)
             assert any("Art. 1º" in item["article"] for item in sources)
 
+            filters = client.get("/api/filter-options")
+            assert filters.status_code == 200
+            law_types = filters.json()["law_types"]
+            assert any(row["value"] == "Lei Ordinária" and row["count"] >= 1
+                       for row in law_types)
+
             answer = client.post("/api/ask", json={"question": "direito informacional"})
             assert answer.status_code == 200
             assert answer.json()["sources"]
