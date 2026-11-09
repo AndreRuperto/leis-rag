@@ -301,6 +301,7 @@
     let currentMode = "search";
     let activeRequest = null;
     let aiAvailable = true;
+    let providerEnabled = false;
 
     function applyTheme(theme) {
       const selected = theme === "dark" ? "dark" : "light";
@@ -337,7 +338,7 @@
       tabSearch.tabIndex = isSearch ? 0 : -1;
       tabAsk.tabIndex = isSearch ? -1 : 0;
       $("query-panel").setAttribute("aria-labelledby", isSearch ? "tab-search" : "tab-ask");
-      submitLabel.textContent = isSearch ? "Pesquisar legislação" : "Consultar com IA";
+      submitLabel.textContent = isSearch ? "Pesquisar legislação" : (providerEnabled ? "Consultar com IA" : "Consultar referências");
       $("mode-note").textContent = isSearch
         ? "Encontre artigos e dispositivos na base disponível, com referência ao documento original."
         : "A IA utiliza os trechos recuperados como base. Confira sempre as citações e a vigência.";
@@ -465,16 +466,20 @@
         const response = await fetch("/api/capabilities");
         if (!response.ok) return;
         const data = await response.json();
-        aiAvailable = data.ai_available === true;
+        providerEnabled = data.ai_available === true;
+        aiAvailable = providerEnabled || data.editorial_guides_available === true;
         const notice = $("ai-availability");
         notice.hidden = false;
         if (!aiAvailable) {
           tabAsk.disabled = true;
           tabAsk.setAttribute("aria-disabled", "true");
-          notice.textContent = "Síntese por IA não configurada neste servidor. A busca de dispositivos continua disponível.";
+          notice.textContent = "Síntese por IA não configurada. A pesquisa nos dispositivos permanece disponível.";
           selectMode("search");
         } else {
-          notice.textContent = data.official_web_search_available
+          if (!providerEnabled) {
+            tabAsk.textContent = "Consultar referências";
+            notice.textContent = "Guias editoriais com referências oficiais estão disponíveis para alguns temas. A geração por IA ainda não está habilitada.";
+          } else notice.textContent = data.official_web_search_available
             ? "Consulta híbrida: a IA cruza documentos do acervo com fontes oficiais externas."
             : "A IA sintetiza os documentos do acervo. Pesquisa em fontes externas não está habilitada.";
         }
@@ -529,16 +534,17 @@
 
       if (mode === "ask") {
         const answer = make("div", "answer");
-        answer.appendChild(make("h3", "", data.ai_generated === true ? "Síntese jurídica assistida por IA" : "Status da consulta"));
+        const editorial = data.answer_mode === "guia_editorial";
+        answer.appendChild(make("h3", "", editorial ? "Guia jurídico com referências oficiais" : (data.ai_generated === true ? "Síntese jurídica assistida por IA" : "Status da consulta")));
         answer.appendChild(make("div", "answer-body", data.answer || "Não foi possível gerar uma resposta."));
         answer.appendChild(make("p", "answer-disclaimer", data.ai_generated
           ? "Resposta informativa assistida por IA. Confira a fonte oficial e a vigência; não substitui análise jurídica."
-          : "Nenhuma conclusão jurídica foi produzida por IA nesta consulta."));
+          : (editorial ? "Guia editorial com fontes verificadas em " + (data.references_checked_at || "data não informada") + ". Não houve consulta à web em tempo real; confirme atualizações nas fontes." : "Nenhuma conclusão jurídica foi produzida por IA nesta consulta.")));
         result.appendChild(answer);
         const webSources = Array.isArray(data.web_sources) ? data.web_sources : [];
         if (webSources.length) {
           const block = make("section", "web-sources");
-          block.appendChild(make("h3", "", "Fontes oficiais externas consultadas"));
+          block.appendChild(make("h3", "", editorial ? "Referências oficiais do guia" : "Fontes oficiais externas consultadas"));
           const list = make("ul", "");
           webSources.forEach(source => {
             const item = make("li", "");
@@ -553,7 +559,7 @@
       if (sources.length === 0) {
         result.appendChild(make("div", "empty",
           Array.isArray(data.web_sources) && data.web_sources.length
-            ? "O acervo local não retornou trechos; consulte as fontes oficiais externas acima."
+            ? (data.answer_mode === "guia_editorial" ? "Os trechos locais não responderam literalmente à pergunta. O guia editorial e suas referências oficiais estão acima." : "O acervo local não retornou trechos; consulte as fontes oficiais externas acima.")
             : "Nenhum trecho encontrado neste recorte. Amplie a busca ou os filtros. A ausência de resultados não significa que a norma não exista."));
         return;
       }
@@ -656,7 +662,7 @@
           activeRequest = null;
           submitButton.disabled = false;
           submitButton.removeAttribute("aria-busy");
-          submitLabel.textContent = currentMode === "search" ? "Pesquisar legislação" : "Consultar com IA";
+          submitLabel.textContent = currentMode === "search" ? "Pesquisar legislação" : (providerEnabled ? "Consultar com IA" : "Consultar referências");
         }
       }
     }
