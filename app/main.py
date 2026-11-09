@@ -55,6 +55,13 @@ def home():
     return FileResponse(Path(__file__).parent / "static" / "index.html")
 
 
+@app.get("/sobre", include_in_schema=False)
+@app.get("/sobre/", include_in_schema=False)
+def about():
+    """Página de apresentação, metodologia e limites do projeto."""
+    return FileResponse(STATIC_DIR / "sobre.html")
+
+
 @app.get("/api/health")
 def health():
     with connection() as conn:
