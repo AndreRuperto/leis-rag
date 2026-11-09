@@ -97,7 +97,7 @@ def ask_api(
     if can_use_ai:
         authorize_paid_ai(request, access_token)
 
-    sources = search(
+    sources = [] if body.research_mode == "web" else search(
         body.question, sphere=body.sphere, uf=body.uf,
         law_type=body.law_type, limit=body.limit,
     )
