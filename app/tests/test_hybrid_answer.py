@@ -16,7 +16,7 @@ def test_without_api_key_does_not_claim_no_law(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     result = answer_with_evidence("O que a Constituição diz sobre aborto?", [])
     assert result["ai_generated"] is False
-    assert not result["web_sources"]
+    assert len(result["web_sources"]) == 4
     assert result["answer_mode"] == "guia_editorial"
     assert "ADPF 54" in result["answer"]
     assert len(result["web_sources"]) == 4
@@ -25,8 +25,9 @@ def test_without_api_key_does_not_claim_no_law(monkeypatch):
 def test_no_evidence_fails_closed_without_web_opt_in(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test")
     monkeypatch.delenv("LEGAL_WEB_SEARCH_ENABLED", raising=False)
-    result = answer_with_evidence("O que a Constituição diz sobre aborto?", [])
+    result = answer_with_evidence("Quais são os direitos do inquilino?", [])
     assert result["ai_generated"] is False
+    assert not result["web_sources"]
     assert "não permite concluir" in result["answer"]
 
 
