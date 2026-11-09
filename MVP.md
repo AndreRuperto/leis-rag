@@ -74,16 +74,26 @@ O comportamento do endpoint `POST /api/ask` agora diferencia:
   e da chave da API. Se não houver evidência, o sistema explica a limitação.
 - **Com chave e acervo local:** quando não houver guia, sintetiza os dispositivos
   recuperados; o modelo não deve inventar normas que não foram fornecidas.
-- **Com chave e `LEGAL_WEB_SEARCH_ENABLED=1`:** pesquisa obrigatória em sites oficiais
-  (Planalto, STF, STJ, Senado, Câmara, CNJ e gov.br), permite relacionar
-  Constituição, leis e jurisprudência, e devolve `web_sources` com URLs citadas
-  pelo provedor, além de `sources` locais. Sem citações oficiais verificáveis,
-  o servidor não apresenta conclusão jurídica derivada da busca.
+- **Com chave, código de acesso e `LEGAL_WEB_SEARCH_ENABLED=1`:** a IA pesquisa
+  também fora do acervo, mesmo quando já existem trechos locais. Prioriza
+  instituições oficiais (Planalto, STF, STJ, tribunais e órgãos públicos) e
+  pode complementar com fontes acadêmicas e especializadas. Cada URL citada
+  pelo provedor aparece em `web_sources` com classificação `oficial`,
+  `academica` ou `complementar`. Se não houver fonte institucional entre
+  as referências, uma advertência é mostrada. Sem citações verificáveis,
+  não publica a conclusão.
 
-Para a modalidade exclusivamente documental, envie `research_mode: "acervo"` no
-corpo da requisição (padrão `"hybrid"`). O endpoint `GET /api/capabilities`
-indica se IA e pesquisa externa estão configuradas; a interface desabilita
-a aba de IA quando não há chave configurada.
+Use `research_mode` no corpo da requisição:
+- `auto` (padrão): se a web estiver habilitada, a IA **pesquisa externamente**
+  mesmo que existam documentos locais;
+- `hybrid`: combina trechos locais e busca web atualizada, quando habilitada;
+- `web`: pesquisa fora do acervo e não envia trechos locais ao modelo;
+- `acervo`: restringe expressamente a resposta aos documentos indexados.
+
+O endpoint `GET /api/capabilities` expõe apenas o estado de configuração,
+nunca as credenciais. A interface permite escolher o modo e inserir
+temporariamente o código de acesso. O código é mantido na memória da página,
+sem armazenamento persistente.
 
 **Muito importante:** **não configure uma chave paga no serviço público do MVP**
 antes de implementar controle de acesso, limites de uso e observabilidade de custos.
@@ -146,3 +156,44 @@ rotula o texto editorial separadamente das fontes do banco. Essa etapa não
 deve ser confundida com uma busca semântica completa. A cobertura do
 catálogo é deliberadamente limitada: o objetivo continua sendo integrar
 mais normas ao banco e habilitar RAG com atualização controlada.
+
+
+## Autonomia controlada e proteção da API
+
+A função `answer_with_evidence` no arquivo `app/search.py` usa a ferramenta
+`web_search` da **Responses API**. A consulta externa acontece mesmo quando
+o PostgreSQL já encontrou dispositivos: o acervo passa a ser **contexto**,
+e não limite da pesquisa. As URLs devem vir das anotações de citação reais
+do provedor; o site **não** inventa links. Fontes não oficiais são identificadas
+como complementares, e respostas com fontes apenas secundárias exibem
+advertência. A IA ainda pode errar; sempre confira normas, decisões e vigência.
+
+Antes de ativar a integração, configure **somente no backend**, no Railway ou
+no ambiente local: `OPENAI_API_KEY`, `LEGAL_AI_ACCESS_TOKEN` e
+`LEGAL_WEB_SEARCH_ENABLED=1`. Não coloque nenhum desses valores no repositório.
+O acesso a chamadas pagas requer o cabeçalho `X-Leis-Access-Token`; a
+interface solicita o código privado ao usuário e o mantém apenas em memória.
+A chave da OpenAI nunca é enviada ao frontend.
+
+Para reduzir abuso/custos, há limite por minuto e quota diária persistente
+no PostgreSQL (`ai_daily_usage`). Os valores são configuráveis por
+`LEGAL_AI_RATE_PER_MIN` (padrão 4) e `LEGAL_AI_DAILY_LIMIT` (padrão 25).
+O limite por minuto é local ao processo, portanto **não é global** caso
+sejam criadas várias réplicas. A quota conta solicitações, **não é um teto
+financeiro**: várias buscas da API podem ser executadas numa chamada.
+Monitore custos e ative orçamentos/alertas no provedor. Restringir o código
+a pessoas autorizadas é obrigatório antes do uso público.
+
+Exemplo de chamada protegida (substitua pelos seus valores locais):
+
+~~~bash
+curl -X POST "https://leis-web.up.railway.app/api/ask" \
+  -H "Content-Type: application/json" \
+  -H "X-Leis-Access-Token: SEU_CODIGO_PRIVADO" \
+  -d '{"question":"Como a Constituição se relaciona ao Código Penal nesse tema?","research_mode":"auto"}'
+~~~
+
+Se o serviço ainda não tiver chave de API ou o código privado, os guias
+editoriais e a busca documental continuam disponíveis, claramente rotulados,
+sem simular pesquisa online. **O domínio principal é
+https://leis-web.up.railway.app/**.

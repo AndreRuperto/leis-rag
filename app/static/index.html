@@ -130,6 +130,21 @@
     .answer-body{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8;font-size:14px}
     .ai-availability{margin:0;padding:12px 28px;background:var(--notice-bg);color:var(--ink);font-size:12px;border-bottom:1px solid var(--line)}
     .ai-availability[hidden]{display:none}
+    .research-switch{display:flex;align-items:stretch;flex-wrap:wrap;gap:9px;padding:17px 26px 4px;margin:0;border:0;min-width:0}
+    .research-switch[hidden],.ai-auth-panel[hidden]{display:none}
+    .research-switch legend{font-size:12px;font-weight:700;color:var(--muted);padding:0 3px}
+    .research-switch label{display:flex;align-items:flex-start;gap:9px;flex:1 1 150px;margin:0;border:1px solid var(--line-strong);border-radius:10px;padding:10px 12px;background:var(--surface);font-size:13px;cursor:pointer;line-height:1.4}
+    .research-switch label:has(input:checked){border-color:var(--brand);background:var(--surface-tint);color:var(--brand)}
+    .research-switch input{width:16px;height:16px;flex:none;margin:2px 0 0;accent-color:var(--brand)}
+    .research-switch small{display:block;color:var(--muted);font-size:11px;font-weight:500}
+    .ai-auth-panel{padding:14px 26px;border-top:1px solid var(--line);background:var(--notice-bg)}
+    .ai-auth-controls{display:flex;gap:9px}
+    .ai-auth-controls input{min-width:0;flex:1;background:var(--surface);color:var(--ink);border:1px solid var(--line-strong);border-radius:10px;padding:10px 12px}
+    .ai-auth-controls button{color:var(--surface);background:var(--brand);border:0;border-radius:10px;padding:9px 14px;white-space:nowrap;font-weight:700}
+    :root[data-theme="dark"] .ai-auth-controls button{color:#09251d}
+    .ai-auth-panel p{font-size:11px;color:var(--muted);margin:8px 0 0}
+    @media(max-width:480px){.research-switch{padding:14px 15px 4px}.research-switch label{flex:1 1 100%}.ai-auth-panel{padding:14px}.ai-auth-controls{flex-direction:column}}
+
     .mode-tab:disabled{cursor:not-allowed;opacity:.65}
     .web-sources{margin:0 0 20px;padding:19px 22px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
     .web-sources h3{margin:0 0 10px;font-size:15px}
@@ -221,6 +236,20 @@
             <button class="mode-tab" id="tab-ask" type="button" role="tab" aria-selected="false" aria-controls="query-panel">Consultar com IA</button>
           </div>
           <p id="ai-availability" class="ai-availability" role="status" hidden></p>
+          <fieldset id="research-switch" class="research-switch" hidden>
+            <legend>Onde pesquisar?</legend>
+            <label><input type="radio" name="research_mode" value="auto" checked> Automático <small>Acervo + internet</small></label>
+            <label><input type="radio" name="research_mode" value="web"> Pesquisa web <small>Além do acervo</small></label>
+            <label><input type="radio" name="research_mode" value="acervo"> Só documentos <small>Sem internet</small></label>
+          </fieldset>
+          <div id="ai-auth-panel" class="ai-auth-panel" hidden>
+            <label for="ai-access-code">Código de acesso à IA</label>
+            <div class="ai-auth-controls">
+              <input id="ai-access-code" type="password" autocomplete="off" placeholder="Código privado configurado no Railway">
+              <button id="ai-unlock" type="button">Usar código</button>
+            </div>
+            <p>O código libera consultas pagas no servidor, mas nunca expõe a chave da OpenAI no navegador.</p>
+          </div>
           <div class="search-fields" id="query-panel" role="tabpanel" aria-labelledby="tab-search">
             <label for="question">Assunto, dispositivo ou pergunta</label>
             <textarea id="question" required minlength="2" maxlength="500" placeholder="Ex.: O que a Constituição determina sobre liberdade de expressão?"></textarea>
@@ -302,6 +331,8 @@
     let activeRequest = null;
     let aiAvailable = true;
     let providerEnabled = false;
+    let aiAccessCode = "";
+    let externalResearchEnabled = false;
 
     function applyTheme(theme) {
       const selected = theme === "dark" ? "dark" : "light";
@@ -338,10 +369,12 @@
       tabSearch.tabIndex = isSearch ? 0 : -1;
       tabAsk.tabIndex = isSearch ? -1 : 0;
       $("query-panel").setAttribute("aria-labelledby", isSearch ? "tab-search" : "tab-ask");
+      $("research-switch").hidden = isSearch || !providerEnabled;
+      $("ai-auth-panel").hidden = isSearch || !providerEnabled || Boolean(aiAccessCode);
       submitLabel.textContent = isSearch ? "Pesquisar legislação" : (providerEnabled ? "Consultar com IA" : "Consultar referências");
       $("mode-note").textContent = isSearch
         ? "Encontre artigos e dispositivos na base disponível, com referência ao documento original."
-        : "A IA utiliza os trechos recuperados como base. Confira sempre as citações e a vigência.";
+        : (providerEnabled ? "A IA pode complementar o acervo com fontes externas. Verifique as referências e a vigência." : "Guias editoriais disponíveis para alguns assuntos, sem pesquisa por IA.");
       if (focus) (isSearch ? tabSearch : tabAsk).focus();
     }
 
@@ -467,7 +500,12 @@
         if (!response.ok) return;
         const data = await response.json();
         providerEnabled = data.ai_available === true;
+        externalResearchEnabled = data.external_research_available === true;
         aiAvailable = providerEnabled || data.editorial_guides_available === true;
+        document.querySelector('input[name="research_mode"][value="web"]').disabled = !externalResearchEnabled;
+        if (!externalResearchEnabled) {
+          document.querySelector('input[name="research_mode"][value="auto"]').closest("label").querySelector("small").textContent = "Acervo (web indisponível)";
+        }
         const notice = $("ai-availability");
         notice.hidden = false;
         if (!aiAvailable) {
@@ -479,12 +517,31 @@
           if (!providerEnabled) {
             tabAsk.textContent = "Consultar referências";
             notice.textContent = "Guias editoriais com referências oficiais estão disponíveis para alguns temas. A geração por IA ainda não está habilitada.";
-          } else notice.textContent = data.official_web_search_available
-            ? "Consulta híbrida: a IA cruza documentos do acervo com fontes oficiais externas."
-            : "A IA sintetiza os documentos do acervo. Pesquisa em fontes externas não está habilitada.";
+          } else notice.textContent = externalResearchEnabled
+            ? "Pesquisa autônoma disponível: a IA consulta documentos locais e fontes externas, priorizando portais oficiais."
+            : "A IA está configurada, mas a pesquisa externa ainda não foi habilitada. As respostas usam apenas o acervo.";
+          selectMode(currentMode);
         }
       } catch (_error) { /* API de prévia ou versão antiga. */ }
     }
+
+    $("ai-unlock").addEventListener("click", () => {
+      const entered = $("ai-access-code").value.trim();
+      if (!entered) { $("ai-access-code").focus(); return; }
+      aiAccessCode = entered;
+      $("ai-access-code").value = "";
+      $("ai-auth-panel").hidden = true;
+      const notice = $("ai-availability");
+      notice.hidden = false;
+      notice.textContent = "Código informado para esta página. A autorização será conferida quando você fizer a consulta.";
+      question.focus();
+    });
+    $("ai-access-code").addEventListener("keydown", event => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        $("ai-unlock").click();
+      }
+    });
 
     async function loadStats() {
       try {
@@ -529,7 +586,9 @@
       const sources = Array.isArray(data.sources) ? data.sources : [];
       const head = make("div", "result-head");
       head.appendChild(make("h2", "", mode === "ask" ? "Resposta e fundamentos" : "Dispositivos encontrados"));
-      head.appendChild(make("span", "count", fmt(sources.length) + (sources.length === 1 ? " trecho encontrado" : " trechos encontrados")));
+      const externalCount = Array.isArray(data.web_sources) ? data.web_sources.length : 0;
+      const localText = fmt(sources.length) + (sources.length === 1 ? " trecho do acervo" : " trechos do acervo");
+      head.appendChild(make("span", "count", localText + (externalCount ? " · " + externalCount + " referências externas" : "")));
       result.appendChild(head);
 
       if (mode === "ask") {
@@ -541,14 +600,19 @@
           ? "Resposta informativa assistida por IA. Confira a fonte oficial e a vigência; não substitui análise jurídica."
           : (editorial ? "Guia editorial com fontes verificadas em " + (data.references_checked_at || "data não informada") + ". Não houve consulta à web em tempo real; confirme atualizações nas fontes." : "Nenhuma conclusão jurídica foi produzida por IA nesta consulta.")));
         result.appendChild(answer);
+        if (data.warning) result.appendChild(make("div", "notice", data.warning));
         const webSources = Array.isArray(data.web_sources) ? data.web_sources : [];
         if (webSources.length) {
           const block = make("section", "web-sources");
-          block.appendChild(make("h3", "", editorial ? "Referências oficiais do guia" : "Fontes oficiais externas consultadas"));
+          block.appendChild(make("h3", "", editorial ? "Referências do guia editorial" : "Fontes externas utilizadas na pesquisa"));
           const list = make("ul", "");
           webSources.forEach(source => {
             const item = make("li", "");
-            addExternalLink(item, source.title || "Fonte oficial", source.url);
+            if (source.kind) {
+              const kind = source.kind === "oficial" ? "Oficial" : source.kind === "academica" ? "Acadêmica" : "Complementar";
+              item.appendChild(make("strong", "", kind + " · "));
+            }
+            addExternalLink(item, source.title || "Referência encontrada", source.url);
             list.appendChild(item);
           });
           block.appendChild(list);
@@ -559,7 +623,7 @@
       if (sources.length === 0) {
         result.appendChild(make("div", "empty",
           Array.isArray(data.web_sources) && data.web_sources.length
-            ? (data.answer_mode === "guia_editorial" ? "Os trechos locais não responderam literalmente à pergunta. O guia editorial e suas referências oficiais estão acima." : "O acervo local não retornou trechos; consulte as fontes oficiais externas acima.")
+            ? (data.answer_mode === "guia_editorial" ? "O guia editorial e suas referências estão acima; não houve pesquisa online nesta consulta." : "Nenhum trecho local correspondeu à busca, mas a pesquisa externa trouxe referências acima.")
             : "Nenhum trecho encontrado neste recorte. Amplie a busca ou os filtros. A ausência de resultados não significa que a norma não exista."));
         return;
       }
@@ -627,6 +691,12 @@
         return;
       }
       const filters = { sphere: $("sphere").value, uf, law_type: $("law_type").value.trim() };
+      if (mode === "ask" && providerEnabled && !aiAccessCode) {
+        $("ai-auth-panel").hidden = false;
+        $("ai-access-code").focus();
+        result.replaceChildren(make("div", "notice", "Digite primeiro o código privado para liberar a consulta com IA."));
+        return;
+      }
       if (activeRequest) activeRequest.abort();
       const controller = new AbortController();
       activeRequest = controller;
@@ -637,8 +707,18 @@
       try {
         let url = "/api/ask";
         let options = {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({question:q,...filters}), signal:controller.signal
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(providerEnabled && aiAccessCode ? {"X-Leis-Access-Token": aiAccessCode} : {})
+          },
+          body: JSON.stringify({
+            question:q, ...filters,
+            research_mode: providerEnabled
+              ? (document.querySelector('input[name="research_mode"]:checked')?.value || "auto")
+              : "auto"
+          }),
+          signal:controller.signal
         };
         if (mode === "search") {
           const params = new URLSearchParams({ q });
@@ -649,6 +729,10 @@
         const response = await fetch(url, options);
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
+          if (response.status === 403 && providerEnabled) {
+            aiAccessCode = "";
+            $("ai-auth-panel").hidden = false;
+          }
           const message = typeof data.detail === "string" ? data.detail : "Não foi possível consultar a base. Tente novamente.";
           throw new Error(message);
         }
