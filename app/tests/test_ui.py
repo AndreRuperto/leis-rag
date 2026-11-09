@@ -191,6 +191,29 @@ def test_dropdowns_stack_above_following_filters():
     assert 'lawTypeDropdown.close();' in HTML
 
 
+def test_ai_research_panel_is_branded_and_accessible():
+    """Seleção continua nativa, mas os três modos são cards personalizados."""
+    assert 'class="research-options"' in HTML
+    assert HTML.count('class="research-card"') == 3
+    for value in ("auto", "web", "acervo"):
+        assert f'name="research_mode" value="{value}"' in HTML
+    assert 'name="research_mode" value="auto" checked' in HTML
+    assert '.research-card:has(input:checked)' in HTML
+    assert '.research-card:has(input:focus-visible)' in HTML
+    assert '.research-card:has(input:disabled)' in HTML
+    assert 'role="status" hidden' in HTML
+    assert 'aria-describedby="ai-auth-hint"' in HTML
+    assert 'type="password" autocomplete="off"' in HTML
+    assert 'id="ai-unlock" type="button"' in HTML
+    assert 'id="ai-auth-panel" class="ai-auth-panel" hidden' in HTML
+    assert 'id="research-switch" class="research-switch" hidden' in HTML
+    assert '@media(max-width:1100px)' in HTML
+    assert '.research-options{grid-template-columns:1fr}' in HTML
+    assert '@media(max-width:480px)' in HTML
+    assert '.ai-auth-controls{flex-direction:column}' in HTML
+    assert 'const next = currentMode' not in HTML
+
+
 def test_javascript_parses(tmp_path):
     node = shutil.which("node")
     if not node:
