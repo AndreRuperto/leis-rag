@@ -12,7 +12,7 @@ SVG_NS = "{http://www.w3.org/2000/svg}"
 
 
 def test_brand_assets_are_valid_svg():
-    for filename in ("brand-logo.svg", "brand-icon.svg"):
+    for filename in ("brand-logo.svg", "brand-logo-dark.svg", "brand-icon.svg"):
         content = (STATIC / filename).read_text(encoding="utf-8")
         root = ET.fromstring(content)
         assert root.tag == SVG_NS + "svg"
@@ -24,6 +24,10 @@ def test_brand_assets_are_valid_svg():
 
 def test_html_uses_logo_and_favicon():
     assert 'src="/assets/brand-logo.svg"' in HTML
+    assert 'src="/assets/brand-logo-dark.svg"' in HTML
+    assert '.brand-identity--dark{display:none}' in HTML
+    assert ':root[data-theme="dark"] .brand-identity--dark{display:block}' in HTML
+    assert 'background:#f8fafc;border-radius:12px;padding:4px 7px' not in HTML
     assert 'href="/favicon.svg"' in HTML
     assert "alt=\"Leis RAG — Pesquisa Jurídica\"" in HTML
     assert "brand-identity" in HTML
@@ -40,3 +44,6 @@ def test_branded_static_routes():
     logo = client.get("/assets/brand-logo.svg")
     assert logo.status_code == 200
     assert "image/svg+xml" in logo.headers["content-type"]
+    dark_logo = client.get("/assets/brand-logo-dark.svg")
+    assert dark_logo.status_code == 200
+    assert "image/svg+xml" in dark_logo.headers["content-type"]
