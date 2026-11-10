@@ -28,3 +28,7 @@ Os textos têm caráter informativo e **não substituem a publicação no Diári
 Uma primeira versão de API e interface web está disponível na pasta [app/](app/). Possui indexação incremental de normas, busca por dispositivos, filtros e respostas fundamentadas nas fontes (IA e vetores opcionais).
 
 Veja [MVP.md](MVP.md) para instalação com Docker, comandos de indexação, API e limitações.
+
+## Plano de evolução
+
+O roteiro de desenvolvimento do projeto está em **[PLANO_PROXIMOS_PASSOS.md](PLANO_PROXIMOS_PASSOS.md)**, com estado atual verificado, prioridades P0–P3, etapas de indexação e RAG, segurança, UX, operação, critérios de aceite e um checklist de execução. As tarefas só são marcadas como concluídas após validação.
